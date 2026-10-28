@@ -23,7 +23,7 @@ export function App() {
   const [roomId, setRoomId] = useState(roomFromUrl);
 
   useEffect(() => {
-    api<{ user: User | null }>('/api/auth/me')
+    api<{ user: User }>('/api/me')
       .then((d) => setUser(d.user))
       .catch(() => setUser(null));
     const onPop = () => setRoomId(roomFromUrl());
@@ -55,7 +55,7 @@ export function App() {
           <ThemeToggle theme={theme} toggle={toggleTheme} />
         </div>
         <main className="home-main">
-          <Hero lead="Одна очередь и одна волна на двоих. Войдите или заведите аккаунт, чтобы слушать вместе с друзьями." />
+          <Hero lead="Одна черга й одна хвиля на всіх. Увійдіть або заведіть акаунт, щоб слухати разом із друзями." />
           <AuthForm invitedRoom={roomId} onAuth={setUser} />
         </main>
       </div>
