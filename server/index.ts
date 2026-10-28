@@ -148,13 +148,13 @@ const REF_RE: Record<Source, RegExp> = {
 function parseFavorite(body: unknown): Favorite | null {
   const b = (body ?? {}) as Record<string, unknown>;
   const source = b.source as Source;
-  const ref = String(b.ref ?? '');
+  const ref = typeof b.ref === 'string' ? b.ref : '';
   if (!(source in REF_RE) || !REF_RE[source].test(ref)) return null;
   const thumb = typeof b.thumbnail === 'string' && /^https:\/\/\S{1,500}$/.test(b.thumbnail) ? b.thumbnail : undefined;
   return {
     source,
     ref,
-    title: String(b.title ?? 'Без названия').slice(0, 200),
+    title: (typeof b.title === 'string' ? b.title : 'Без названия').slice(0, 200),
     artist: typeof b.artist === 'string' ? b.artist.slice(0, 200) : undefined,
     thumbnail: thumb,
   };
@@ -205,7 +205,7 @@ app.post('/api/favorites', requireAuth, (req, res) => {
 
 app.delete('/api/favorites', requireAuth, (req, res) => {
   const b = (req.body ?? {}) as Record<string, unknown>;
-  favoritesDb.remove(req.user!.id, String(b.source ?? ''), String(b.ref ?? ''));
+  favoritesDb.remove(req.user!.id, typeof b.source === 'string' ? b.source : '', typeof b.ref === 'string' ? b.ref : '');
   res.json({ ok: true });
 });
 
@@ -214,9 +214,7 @@ app.get('/api/search/sources', requireAuth, (_req, res) => {
 });
 
 app.get('/api/search', requireAuth, async (req, res) => {
-  const q = String(req.query.q ?? '')
-    .trim()
-    .slice(0, 200);
+  const q = (typeof req.query.q === 'string' ? req.query.q : '').trim().slice(0, 200);
   if (!q) {
     res.status(400).json({ error: 'Пустой запрос' });
     return;
@@ -312,7 +310,7 @@ io.on('connection', (socket) => {
     const r = cleanId ? getRoom(cleanId) : undefined;
     if (!r) return ack({ ok: false, error: 'Такой комнаты нет. Проверьте код или создайте новую' });
     roomId = cleanId;
-    socket.join(roomId);
+    void socket.join(roomId);
     r.members.set(socket.id, { id: String(user.id), name });
     roomsDb.visit(user.id, roomId);
     socket.emit('state', r.state);

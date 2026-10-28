@@ -109,7 +109,10 @@ export function requireAuth(req: Request, res: Response, next: NextFunction) {
 
 function readCredentials(body: unknown): { username: string; password: string } {
   const b = (body ?? {}) as Record<string, unknown>;
-  return { username: String(b.username ?? '').trim(), password: String(b.password ?? '') };
+  return {
+    username: typeof b.username === 'string' ? b.username.trim() : '',
+    password: typeof b.password === 'string' ? b.password : '',
+  };
 }
 
 export const authRouter = Router();

@@ -45,8 +45,8 @@ export class SyncEngine {
 
   /** Call from a user gesture: browsers only allow audio after one. */
   start() {
-    this.timer = window.setInterval(() => this.reconcile(), CHECK_INTERVAL_MS);
-    this.reconcile();
+    this.timer = window.setInterval(() => void this.reconcile(), CHECK_INTERVAL_MS);
+    void this.reconcile();
   }
 
   stop() {
@@ -56,7 +56,7 @@ export class SyncEngine {
 
   setState(state: RoomState) {
     this.state = state;
-    if (this.timer !== undefined) this.reconcile();
+    if (this.timer !== undefined) void this.reconcile();
   }
 
   expectedPosition(): number {

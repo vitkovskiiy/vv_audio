@@ -27,7 +27,7 @@ export function Search({ addUrl }: { addUrl: (url: string) => Promise<boolean> }
 
   useEffect(() => {
     fetch('/api/search/sources')
-      .then((r) => r.json())
+      .then((r) => r.json() as Promise<{ sources: Source[] }>)
       .then((d) => setSources(d.sources))
       .catch(() => setSources([]));
   }, []);
@@ -36,26 +36,27 @@ export function Search({ addUrl }: { addUrl: (url: string) => Promise<boolean> }
   const canSearch = !!sources?.length && q.length >= 2 && !isLink(q);
 
   useEffect(() => {
-    if (!canSearch) {
-      setGroups([]);
-      setLoading(false);
-      return;
-    }
+    if (!canSearch) return;
     const id = ++reqId.current;
-    setLoading(true);
-    const t = window.setTimeout(async () => {
+    const run = async () => {
+      setLoading(true);
       try {
         const res = await fetch(`/api/search?q=${encodeURIComponent(q)}`);
-        const data = await res.json();
+        const data = (await res.json()) as { groups?: SearchGroup[] };
         if (id === reqId.current) setGroups(data.groups ?? []);
       } catch {
         if (id === reqId.current) setGroups([]);
       } finally {
         if (id === reqId.current) setLoading(false);
       }
-    }, DEBOUNCE_MS);
+    };
+    const t = window.setTimeout(() => void run(), DEBOUNCE_MS);
     return () => window.clearTimeout(t);
   }, [q, canSearch]);
+
+  // results and the spinner only make sense while a search is possible
+  const shownGroups = canSearch ? groups : [];
+  const showLoading = canSearch && loading;
 
   const add = async (url: string) => {
     setAdding(url);
@@ -76,7 +77,7 @@ export function Search({ addUrl }: { addUrl: (url: string) => Promise<boolean> }
 
   return (
     <div className="search">
-      <form className={`search-box${loading ? ' loading' : ''}`} onSubmit={submit}>
+      <form className={`search-box${showLoading ? ' loading' : ''}`} onSubmit={submit}>
         <input value={text} onChange={(e) => setText(e.target.value)} placeholder={placeholder} aria-label="Поиск или ссылка" />
         {isLink(q) && (
           <button type="submit" className="btn primary small" disabled={adding !== null}>
@@ -94,12 +95,12 @@ export function Search({ addUrl }: { addUrl: (url: string) => Promise<boolean> }
         <p className="muted small">Поиск по названию не настроен: добавьте ключи в файл .env (см. README). Ссылки работают и без него.</p>
       )}
 
-      {groups.map((g) => (
+      {shownGroups.map((g) => (
         <div key={g.source} className="results">
           <div className="results-head">
             <span className={`badge ${g.source}`}>{SOURCE_LABEL[g.source]}</span>
             {g.error && <span className="error small">{g.error}</span>}
-            {!g.error && !loading && g.results.length === 0 && <span className="muted small">ничего не нашлось</span>}
+            {!g.error && !showLoading && g.results.length === 0 && <span className="muted small">ничего не нашлось</span>}
           </div>
           <ul>
             {g.results.map((r) => {

@@ -10,8 +10,8 @@ export async function api<T>(path: string, opts: { method?: string; body?: unkno
   } catch {
     throw new Error('Сервер не отвечает. Проверьте, что он запущен');
   }
-  const data = await res.json().catch(() => ({}));
+  const data = (await res.json().catch(() => ({}))) as { error?: string };
   if (res.status === 401 && path !== '/api/auth/login') window.dispatchEvent(new Event('vv-unauthorized'));
   if (!res.ok) throw new Error(data.error ?? `Ошибка ${res.status}`);
-  return data as T;
+  return data as unknown as T;
 }

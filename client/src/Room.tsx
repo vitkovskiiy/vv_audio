@@ -130,7 +130,10 @@ export function Room({ roomId, user, theme, toggleTheme, onLeave, onLogout }: Pr
     socket.on('chat', (m) => setChat((c) => [...c.slice(-199), m]));
     socket.connect();
 
-    const resync = window.setInterval(() => socket.connected && syncClock(), 60000);
+    // a failed periodic clock sync just keeps the previous offset
+    const resync = window.setInterval(() => {
+      if (socket.connected) syncClock().catch(() => {});
+    }, 60000);
     const tick = window.setInterval(() => setProgress({ time: engine.currentTime(), duration: engine.duration() }), 500);
 
     return () => {
@@ -175,7 +178,7 @@ export function Room({ roomId, user, theme, toggleTheme, onLeave, onLogout }: Pr
       const body = new FormData();
       body.append('file', file);
       const res = await fetch('/api/upload', { method: 'POST', body });
-      const data = await res.json();
+      const data = (await res.json()) as { ref: string; title: string; error?: string };
       if (!res.ok) throw new Error(data.error);
       socket.emit('addFile', data, (r) => !r.ok && flash(r.error));
     } catch (e) {

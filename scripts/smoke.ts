@@ -59,7 +59,10 @@ await waitForServer();
 await expect('server starts', true);
 
 const me = await fetch(`${base}/api/auth/me`);
-await expect('anonymous /api/auth/me answers 200 with no user', me.status === 200 && (await me.json()).user === null);
+await expect(
+  'anonymous /api/auth/me answers 200 with no user',
+  me.status === 200 && ((await me.json()) as { user: unknown }).user === null,
+);
 
 const reg = await fetch(`${base}/api/auth/register`, {
   method: 'POST',

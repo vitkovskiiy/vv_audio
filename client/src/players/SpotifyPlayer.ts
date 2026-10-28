@@ -17,9 +17,12 @@ interface PlaybackUpdate {
 let apiReady: Promise<any> | null = null;
 function loadApi(): Promise<any> {
   if (!apiReady) {
-    apiReady = new Promise((resolve) => {
+    apiReady = new Promise((resolve, reject) => {
       window.onSpotifyIframeApiReady = (api) => resolve(api);
-      loadScript('https://open.spotify.com/embed/iframe-api/v1');
+      loadScript('https://open.spotify.com/embed/iframe-api/v1').catch((err) => {
+        apiReady = null; // allow a retry on the next load
+        reject(err instanceof Error ? err : new Error(String(err)));
+      });
     });
   }
   return apiReady;
