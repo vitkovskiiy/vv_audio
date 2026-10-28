@@ -1,0 +1,1435 @@
+/* ---------- tokens ---------- */
+:root {
+  --display: 'Unbounded', 'Onest', system-ui, sans-serif;
+  --body: 'Onest', system-ui, -apple-system, 'Segoe UI', sans-serif;
+
+  --spotify: #1ed760;
+  --soundcloud: #ff6a1a;
+  --youtube: #ff2d55;
+  --file: #9b6bff;
+
+  --r-stage: 28px;
+  --r-panel: 22px;
+  --r-item: 12px;
+}
+
+:root,
+:root[data-theme='light'] {
+  color-scheme: light;
+  --bg: #f6f4fc;
+  --surface: rgb(255 255 255 / 0.78);
+  --surface-solid: #ffffff;
+  --sunken: #eeebf7;
+  --line: rgb(26 21 48 / 0.09);
+  --text: #1a1530;
+  --muted: #6b6585;
+  --accent: #6a3df0;
+  --on-accent: #ffffff;
+  --error: #d4243f;
+  --hint-bg: #fff4d6;
+  --hint-text: #6b4a00;
+  --shadow: 0 1px 2px rgb(26 21 48 / 0.05), 0 12px 32px -12px rgb(26 21 48 / 0.18);
+  --bg-blur-opacity: 0.32;
+  --glow-strength: 45%;
+  --scrim: 35%;
+}
+
+:root[data-theme='dark'] {
+  color-scheme: dark;
+  --bg: #120f1f;
+  --surface: rgb(28 24 48 / 0.72);
+  --surface-solid: #1c1830;
+  --sunken: #17132a;
+  --line: rgb(255 255 255 / 0.08);
+  --text: #f2eeff;
+  --muted: #9c95b8;
+  --accent: #b79cff;
+  --on-accent: #160f2e;
+  --error: #ff6b81;
+  --hint-bg: #3a2f10;
+  --hint-text: #f5d98a;
+  --shadow: 0 1px 2px rgb(0 0 0 / 0.3), 0 16px 40px -16px rgb(0 0 0 / 0.6);
+  --bg-blur-opacity: 0.5;
+  --glow-strength: 65%;
+  --scrim: 70%;
+}
+
+/* ---------- base ---------- */
+* {
+  box-sizing: border-box;
+}
+
+html,
+body {
+  margin: 0;
+  background: var(--bg);
+  color: var(--text);
+  font-family: var(--body);
+  font-size: 15px;
+  line-height: 1.5;
+  -webkit-font-smoothing: antialiased;
+}
+
+body {
+  min-height: 100vh;
+  background:
+    radial-gradient(60vw 40vh at 15% -10%, color-mix(in oklab, var(--accent) 14%, transparent), transparent 70%),
+    radial-gradient(50vw 40vh at 100% 0%, color-mix(in oklab, var(--youtube) 8%, transparent), transparent 70%),
+    var(--bg);
+  background-attachment: fixed;
+}
+
+h1,
+h2,
+p {
+  margin: 0;
+}
+
+h2 {
+  font-family: var(--display);
+  font-weight: 500;
+  font-size: 15px;
+  letter-spacing: 0.01em;
+}
+
+button,
+input {
+  font: inherit;
+  color: inherit;
+}
+
+input {
+  width: 100%;
+  min-width: 0;
+  padding: 12px 16px;
+  border: 1px solid var(--line);
+  border-radius: 999px;
+  background: var(--sunken);
+  outline: none;
+  transition: border-color 0.15s, box-shadow 0.15s;
+}
+
+input::placeholder {
+  color: var(--muted);
+}
+
+input:focus {
+  border-color: color-mix(in oklab, var(--accent) 60%, transparent);
+  box-shadow: 0 0 0 4px color-mix(in oklab, var(--accent) 18%, transparent);
+}
+
+:focus-visible {
+  outline: 2px solid var(--accent);
+  outline-offset: 2px;
+}
+
+input:focus-visible {
+  outline: none;
+}
+
+.muted {
+  color: var(--muted);
+}
+
+.small {
+  font-size: 13px;
+}
+
+.error {
+  color: var(--error);
+  font-size: 14px;
+}
+
+.row {
+  display: flex;
+  gap: 8px;
+}
+
+/* ---------- buttons ---------- */
+.btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  padding: 12px 20px;
+  border: 1px solid var(--line);
+  border-radius: 999px;
+  background: var(--surface-solid);
+  font-weight: 600;
+  cursor: pointer;
+  white-space: nowrap;
+  transition: transform 0.12s, box-shadow 0.2s, background 0.2s;
+}
+
+.btn:active:not(:disabled) {
+  transform: scale(0.97);
+}
+
+.btn.primary {
+  background: var(--accent);
+  color: var(--on-accent);
+  border-color: transparent;
+  box-shadow: 0 8px 28px -8px color-mix(in oklab, var(--accent) 70%, transparent);
+}
+
+.btn.primary:hover:not(:disabled) {
+  box-shadow: 0 10px 36px -6px color-mix(in oklab, var(--accent) 90%, transparent);
+}
+
+.btn.ghost {
+  background: transparent;
+}
+
+.btn.ghost:hover {
+  background: var(--sunken);
+}
+
+.btn.small {
+  padding: 8px 14px;
+  font-size: 14px;
+}
+
+.btn.wide {
+  width: 100%;
+}
+
+.btn:disabled,
+.icon-btn:disabled,
+.play-btn:disabled {
+  opacity: 0.4;
+  cursor: default;
+}
+
+.icon-btn {
+  display: inline-grid;
+  place-items: center;
+  width: 40px;
+  height: 40px;
+  flex-shrink: 0;
+  border: 1px solid var(--line);
+  border-radius: 50%;
+  background: var(--surface-solid);
+  cursor: pointer;
+  transition: background 0.15s, box-shadow 0.2s, transform 0.12s;
+}
+
+.icon-btn:hover:not(:disabled) {
+  background: var(--sunken);
+}
+
+.icon-btn:active:not(:disabled) {
+  transform: scale(0.92);
+}
+
+.icon-btn.subtle {
+  border-color: transparent;
+  background: transparent;
+  color: var(--muted);
+  width: 34px;
+  height: 34px;
+}
+
+.icon-btn.subtle:hover {
+  color: var(--text);
+}
+
+.icon-btn.accent {
+  background: var(--accent);
+  border-color: transparent;
+  color: var(--on-accent);
+}
+
+.icon-btn.accent:hover:not(:disabled) {
+  background: var(--accent);
+  box-shadow: 0 0 22px -2px color-mix(in oklab, var(--accent) 80%, transparent);
+}
+
+.icon-btn.done {
+  color: var(--spotify);
+  opacity: 1;
+}
+
+/* ---------- source badges ---------- */
+.badge {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 3px 10px 3px 8px;
+  border-radius: 999px;
+  font-size: 12px;
+  font-weight: 600;
+  background: color-mix(in oklab, var(--c) 16%, transparent);
+  color: color-mix(in oklab, var(--c) 75%, var(--text));
+}
+
+.badge::before {
+  content: '';
+  width: 7px;
+  height: 7px;
+  border-radius: 50%;
+  background: var(--c);
+  box-shadow: 0 0 8px var(--c);
+}
+
+.badge.spotify {
+  --c: var(--spotify);
+}
+.badge.soundcloud {
+  --c: var(--soundcloud);
+}
+.badge.youtube {
+  --c: var(--youtube);
+}
+.badge.file {
+  --c: var(--file);
+}
+
+/* ---------- panels ---------- */
+.panel {
+  background: var(--surface);
+  border: 1px solid var(--line);
+  border-radius: var(--r-panel);
+  padding: 20px;
+  box-shadow: var(--shadow);
+  backdrop-filter: blur(16px);
+}
+
+.panel-head {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 12px;
+  margin-bottom: 14px;
+}
+
+/* ---------- home ---------- */
+.home {
+  min-height: 100vh;
+  display: flex;
+  flex-direction: column;
+  padding: 16px;
+}
+
+.home-top {
+  display: flex;
+  align-items: center;
+  justify-content: flex-end;
+  gap: 10px;
+}
+
+.hello {
+  font-size: 14px;
+  color: var(--muted);
+}
+
+.hello b {
+  color: var(--text);
+  font-weight: 600;
+}
+
+.code {
+  font-family: var(--display);
+  font-weight: 500;
+  letter-spacing: 0.1em;
+}
+
+.segmented.wide {
+  display: flex;
+  margin: 0;
+}
+
+.segmented.wide button {
+  flex: 1;
+}
+
+/* rooms the user has visited */
+.my-rooms {
+  max-width: 1100px;
+  width: 100%;
+  margin: 0 auto 48px;
+}
+
+.my-rooms h2 {
+  margin-bottom: 14px;
+}
+
+.my-rooms ul {
+  list-style: none;
+  padding: 0;
+  margin: 0;
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(280px, 1fr));
+  gap: 12px;
+}
+
+.my-rooms li {
+  position: relative;
+}
+
+.room-tile {
+  width: 100%;
+  display: flex;
+  align-items: center;
+  gap: 14px;
+  padding: 12px 44px 12px 12px;
+  border: 1px solid var(--line);
+  border-radius: var(--r-panel);
+  background: var(--surface);
+  backdrop-filter: blur(16px);
+  text-align: left;
+  cursor: pointer;
+  transition: border-color 0.15s, box-shadow 0.2s;
+}
+
+.room-tile:hover {
+  border-color: color-mix(in oklab, var(--accent) 45%, transparent);
+  box-shadow: 0 10px 34px -14px color-mix(in oklab, var(--accent) 70%, transparent);
+}
+
+.room-tile img,
+.room-tile .thumb-empty {
+  width: 56px;
+  height: 56px;
+  border-radius: 14px;
+  object-fit: cover;
+  flex-shrink: 0;
+}
+
+.room-tile-text {
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+}
+
+.room-tile-title {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  font-weight: 500;
+}
+
+.my-rooms li > .icon-btn {
+  position: absolute;
+  top: 8px;
+  right: 8px;
+}
+
+.fatal {
+  flex: 1;
+  display: grid;
+  place-items: center;
+}
+
+.home-main {
+  flex: 1;
+  display: grid;
+  grid-template-columns: minmax(0, 1.2fr) minmax(0, 400px);
+  align-items: center;
+  gap: 48px;
+  max-width: 1100px;
+  width: 100%;
+  margin: 0 auto;
+  padding: 24px 0 64px;
+}
+
+.home-hero {
+  position: relative;
+}
+
+.logo {
+  position: relative;
+  font-family: var(--display);
+  font-weight: 800;
+  font-size: clamp(72px, 13vw, 168px);
+  line-height: 0.88;
+  letter-spacing: -0.04em;
+  color: var(--text);
+  text-shadow: 0 0 60px color-mix(in oklab, var(--accent) 40%, transparent);
+}
+
+.home-lead {
+  position: relative;
+  max-width: 34ch;
+  margin-top: 28px;
+  font-size: 18px;
+  color: var(--muted);
+}
+
+/* the light show behind the logo: one blob per source colour */
+.orb {
+  position: absolute;
+  inset: -10% 10% 10% -10%;
+  pointer-events: none;
+  filter: blur(60px);
+  opacity: var(--glow-strength);
+}
+
+.orb span {
+  position: absolute;
+  width: 46%;
+  aspect-ratio: 1;
+  border-radius: 50%;
+  animation: drift 18s ease-in-out infinite alternate;
+}
+
+.orb span:nth-child(1) {
+  background: var(--soundcloud);
+  left: 0;
+  top: 10%;
+}
+
+.orb span:nth-child(2) {
+  background: var(--file);
+  left: 30%;
+  top: 0;
+  animation-delay: -6s;
+}
+
+.orb span:nth-child(3) {
+  background: var(--youtube);
+  left: 20%;
+  top: 35%;
+  animation-delay: -12s;
+}
+
+@keyframes drift {
+  0% {
+    transform: translate(0, 0) scale(1);
+  }
+  50% {
+    transform: translate(12%, -8%) scale(1.12);
+  }
+  100% {
+    transform: translate(-8%, 10%) scale(0.92);
+  }
+}
+
+.home-form {
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+  padding: 28px;
+}
+
+.field {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  font-size: 14px;
+  font-weight: 500;
+}
+
+.or {
+  text-align: center;
+  color: var(--muted);
+  font-size: 13px;
+}
+
+.code-input {
+  font-family: var(--display);
+  letter-spacing: 0.12em;
+}
+
+/* ---------- room layout ---------- */
+.room {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) 340px;
+  grid-template-areas:
+    'top top'
+    'stage side'
+    'queue side';
+  align-items: start;
+  gap: 20px;
+  max-width: 1280px;
+  margin: 0 auto;
+  padding: 16px 20px 40px;
+}
+
+.topbar {
+  grid-area: top;
+  display: flex;
+  align-items: center;
+  gap: 16px;
+  flex-wrap: wrap;
+}
+
+.brand {
+  padding: 0;
+  border: 0;
+  background: none;
+  cursor: pointer;
+  font-family: var(--display);
+  font-weight: 800;
+  font-size: 20px;
+  letter-spacing: -0.03em;
+  color: var(--text);
+  text-decoration: none;
+}
+
+.room-chip {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 6px 14px;
+  border: 1px solid var(--line);
+  border-radius: 999px;
+  background: var(--surface);
+  font-size: 14px;
+}
+
+.room-chip b {
+  font-family: var(--display);
+  font-weight: 500;
+  letter-spacing: 0.1em;
+}
+
+.live {
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  background: var(--muted);
+}
+
+.live.on {
+  background: var(--spotify);
+  box-shadow: 0 0 10px var(--spotify);
+}
+
+.topbar-actions {
+  margin-left: auto;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+/* ---------- stage: lit by the current track ---------- */
+.stage {
+  --glow: var(--accent);
+  grid-area: stage;
+  position: relative;
+  isolation: isolate;
+  overflow: hidden;
+  display: grid;
+  grid-template-columns: 260px minmax(0, 1fr);
+  grid-template-areas:
+    'media meta'
+    'widgets widgets';
+  gap: 20px 28px;
+  padding: 28px;
+  border: 1px solid var(--line);
+  border-radius: var(--r-stage);
+  background: var(--surface-solid);
+  box-shadow: var(--shadow);
+}
+
+.stage[data-source='spotify'] {
+  --glow: var(--spotify);
+}
+.stage[data-source='soundcloud'] {
+  --glow: var(--soundcloud);
+}
+.stage[data-source='youtube'] {
+  --glow: var(--youtube);
+}
+.stage[data-source='file'] {
+  --glow: var(--file);
+}
+
+/* blurred cover as ambient light; falls back to a glow when there is no cover */
+.stage-bg {
+  position: absolute;
+  inset: -60px;
+  z-index: -1;
+  background-image: radial-gradient(circle at 25% 40%, color-mix(in oklab, var(--glow) 35%, transparent), transparent 60%);
+  background-size: cover;
+  background-position: center;
+  filter: blur(70px) saturate(1.5);
+  opacity: var(--bg-blur-opacity);
+}
+
+/* scrim over the ambient light so bright covers never wash out the text */
+.stage::after {
+  content: '';
+  position: absolute;
+  inset: 0;
+  z-index: -1;
+  background: linear-gradient(115deg, transparent 0%, color-mix(in oklab, var(--surface-solid) var(--scrim), transparent) 55%);
+}
+
+.stage-media {
+  grid-area: media;
+  position: relative;
+}
+
+.cover {
+  position: relative;
+  width: 260px;
+  aspect-ratio: 1;
+}
+
+/* halo behind the cover; breathes while the room is playing */
+.cover::before {
+  content: '';
+  position: absolute;
+  inset: 8%;
+  z-index: -1;
+  border-radius: 30%;
+  background: var(--glow);
+  filter: blur(42px);
+  opacity: 0.55;
+  transition: opacity 0.4s, background 0.6s;
+}
+
+.is-playing .cover::before {
+  animation: breathe 3.2s ease-in-out infinite;
+}
+
+@keyframes breathe {
+  0%,
+  100% {
+    opacity: 0.5;
+    transform: scale(0.96);
+  }
+  50% {
+    opacity: 0.85;
+    transform: scale(1.08);
+  }
+}
+
+.cover img,
+.cover-empty {
+  display: block;
+  width: 100%;
+  height: 100%;
+  border-radius: 20px;
+  object-fit: cover;
+  box-shadow: 0 0 0 1px var(--line), 0 24px 60px -20px color-mix(in oklab, var(--glow) var(--glow-strength), transparent);
+}
+
+.cover-empty {
+  display: grid;
+  place-items: center;
+  font-size: 72px;
+  color: var(--muted);
+  background: var(--sunken);
+}
+
+.stage-meta {
+  grid-area: meta;
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  gap: 10px;
+  min-width: 0;
+}
+
+.stage-meta .badge {
+  align-self: flex-start;
+}
+
+.track-name {
+  font-family: var(--display);
+  font-weight: 700;
+  font-size: clamp(24px, 3.2vw, 38px);
+  line-height: 1.08;
+  letter-spacing: -0.02em;
+  overflow-wrap: anywhere;
+  display: -webkit-box;
+  -webkit-line-clamp: 3;
+  -webkit-box-orient: vertical;
+  overflow: hidden;
+}
+
+.track-name.quiet {
+  color: var(--muted);
+}
+
+.track-sub {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 4px 14px;
+  font-size: 15px;
+  max-width: 60ch;
+}
+
+/* embedded players: mounted once, shown by source and view mode */
+.embed {
+  display: none;
+}
+
+.stage[data-active='youtube'] .embed-youtube,
+.stage[data-active='soundcloud'] .embed-soundcloud,
+.stage[data-active='spotify'] .embed-spotify,
+.stage.is-clip[data-active='file'] .embed-file {
+  display: block;
+}
+
+.stage[data-active='youtube'] .cover,
+.stage.is-clip[data-active='file'] .cover {
+  display: none;
+}
+
+/* audio view: YouTube shrinks to a square tile (its player may not be hidden) */
+.embed-youtube {
+  width: 260px;
+  aspect-ratio: 1;
+  border-radius: 20px;
+  overflow: hidden;
+  background: #000;
+  box-shadow: 0 0 0 1px var(--line), 0 24px 60px -20px color-mix(in oklab, var(--glow) var(--glow-strength), transparent);
+}
+
+.embed-youtube iframe,
+.embed-file video {
+  display: block;
+  width: 100%;
+  height: 100%;
+  border: 0;
+}
+
+/* clip view: the video takes the whole stage width */
+.stage.is-clip {
+  grid-template-columns: minmax(0, 1fr);
+  grid-template-areas: 'media' 'meta' 'widgets';
+}
+
+.stage.is-clip .embed-youtube,
+.stage.is-clip .embed-file {
+  width: 100%;
+  aspect-ratio: 16 / 9;
+  border-radius: 18px;
+  overflow: hidden;
+  background: #000;
+  box-shadow: 0 0 0 1px var(--line), 0 30px 90px -30px color-mix(in oklab, var(--glow) var(--glow-strength), transparent);
+}
+
+.stage-widgets {
+  grid-area: widgets;
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.stage-widgets:empty {
+  display: none;
+}
+
+.embed-soundcloud iframe,
+.embed-spotify iframe {
+  display: block;
+  border-radius: 14px;
+}
+
+.hint {
+  background: var(--hint-bg);
+  color: var(--hint-text);
+  border-radius: var(--r-item);
+  padding: 10px 14px;
+  font-size: 14px;
+}
+
+/* seek bar */
+.seek {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  margin-top: 10px;
+}
+
+.time {
+  font-size: 13px;
+  color: var(--muted);
+  font-variant-numeric: tabular-nums;
+  min-width: 38px;
+}
+
+.seek .time:last-child {
+  text-align: right;
+}
+
+.seek input[type='range'] {
+  flex: 1;
+  height: 6px;
+  padding: 0;
+  border: 0;
+  border-radius: 999px;
+  appearance: none;
+  background: linear-gradient(90deg, var(--glow) var(--pct, 0%), var(--line) var(--pct, 0%));
+  box-shadow: none;
+  cursor: pointer;
+}
+
+.seek input[type='range']:disabled {
+  cursor: default;
+}
+
+.seek input[type='range']::-webkit-slider-thumb {
+  appearance: none;
+  width: 16px;
+  height: 16px;
+  border-radius: 50%;
+  background: #fff;
+  box-shadow: 0 0 0 3px var(--glow), 0 0 16px var(--glow);
+}
+
+.seek input[type='range']::-moz-range-thumb {
+  width: 16px;
+  height: 16px;
+  border: 0;
+  border-radius: 50%;
+  background: #fff;
+  box-shadow: 0 0 0 3px var(--glow), 0 0 16px var(--glow);
+}
+
+.controls {
+  display: flex;
+  align-items: center;
+  gap: 14px;
+  margin-top: 6px;
+}
+
+.controls .icon-btn {
+  width: 46px;
+  height: 46px;
+  background: var(--surface);
+}
+
+.play-btn {
+  display: grid;
+  place-items: center;
+  width: 64px;
+  height: 64px;
+  border: 0;
+  border-radius: 50%;
+  background: var(--glow);
+  color: #0d0a18;
+  cursor: pointer;
+  box-shadow: 0 0 0 6px color-mix(in oklab, var(--glow) 18%, transparent), 0 10px 40px -6px var(--glow);
+  transition: transform 0.12s, box-shadow 0.3s, background 0.6s;
+}
+
+.play-btn:hover:not(:disabled) {
+  box-shadow: 0 0 0 8px color-mix(in oklab, var(--glow) 24%, transparent), 0 12px 50px -4px var(--glow);
+}
+
+.play-btn:active:not(:disabled) {
+  transform: scale(0.94);
+}
+
+.segmented {
+  margin-left: auto;
+  display: inline-flex;
+  padding: 4px;
+  border: 1px solid var(--line);
+  border-radius: 999px;
+  background: var(--surface);
+}
+
+.segmented button {
+  padding: 7px 16px;
+  border: 0;
+  border-radius: 999px;
+  background: transparent;
+  color: var(--muted);
+  font-size: 14px;
+  font-weight: 600;
+  cursor: pointer;
+  transition: background 0.2s, color 0.2s;
+}
+
+.segmented button.on {
+  background: var(--text);
+  color: var(--bg);
+}
+
+/* ---------- queue ---------- */
+.queue {
+  grid-area: queue;
+}
+
+.tabs {
+  display: flex;
+  gap: 4px;
+}
+
+.tabs button {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  padding: 6px 14px;
+  border: 0;
+  border-radius: 999px;
+  background: transparent;
+  color: var(--muted);
+  font-family: var(--display);
+  font-size: 15px;
+  font-weight: 500;
+  cursor: pointer;
+  transition: background 0.15s, color 0.15s;
+}
+
+.tabs button:first-child {
+  margin-left: -14px;
+}
+
+.tabs button.on {
+  color: var(--text);
+}
+
+.tabs button:hover {
+  background: var(--sunken);
+}
+
+.count {
+  min-width: 22px;
+  padding: 1px 7px;
+  border-radius: 999px;
+  background: var(--sunken);
+  color: var(--muted);
+  font-family: var(--body);
+  font-size: 12px;
+  font-weight: 600;
+  text-align: center;
+}
+
+.tabs button.on .count {
+  background: color-mix(in oklab, var(--accent) 18%, transparent);
+  color: var(--accent);
+}
+
+/* hearts glow pink when the track is saved */
+.heart.on {
+  color: var(--youtube);
+}
+
+.heart.on svg {
+  filter: drop-shadow(0 0 6px color-mix(in oklab, var(--youtube) 70%, transparent));
+}
+
+.controls .heart {
+  background: transparent;
+}
+
+.icon-btn.small-btn {
+  width: 34px;
+  height: 34px;
+  margin-right: 6px;
+}
+
+.track.static {
+  cursor: default;
+}
+
+.search-box {
+  position: relative;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.search-box .icon-btn {
+  position: absolute;
+  right: 4px;
+}
+
+/* thin glowing scan line while a search runs */
+.search-box.loading::after {
+  content: '';
+  position: absolute;
+  left: 18px;
+  right: 18px;
+  bottom: 0;
+  height: 2px;
+  border-radius: 2px;
+  background: linear-gradient(90deg, transparent, var(--accent), transparent);
+  background-size: 40% 100%;
+  background-repeat: no-repeat;
+  animation: scan 1s linear infinite;
+}
+
+@keyframes scan {
+  from {
+    background-position: -40% 0;
+  }
+  to {
+    background-position: 140% 0;
+  }
+}
+
+.search > .muted {
+  margin-top: 10px;
+}
+
+.results {
+  margin-top: 16px;
+}
+
+.results-head {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  margin-bottom: 6px;
+}
+
+.results ul,
+.tracks {
+  list-style: none;
+  padding: 0;
+  margin: 0;
+}
+
+.results li {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 8px;
+  border-radius: var(--r-item);
+  transition: background 0.15s;
+}
+
+.results li:hover {
+  background: var(--sunken);
+}
+
+.results img,
+.thumb-empty,
+.track img {
+  width: 44px;
+  height: 44px;
+  border-radius: 10px;
+  object-fit: cover;
+  flex-shrink: 0;
+}
+
+.thumb-empty {
+  display: grid;
+  place-items: center;
+  background: var(--sunken);
+  color: var(--muted);
+}
+
+.result-meta,
+.track-text {
+  flex: 1;
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+}
+
+.result-title,
+.track-title {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  font-weight: 500;
+}
+
+.results .icon-btn {
+  width: 36px;
+  height: 36px;
+}
+
+.upload {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  flex-wrap: wrap;
+  margin-top: 12px;
+  padding: 12px 16px;
+  border: 1px dashed color-mix(in oklab, var(--muted) 45%, transparent);
+  border-radius: var(--r-item);
+  font-size: 14px;
+  font-weight: 500;
+  cursor: pointer;
+  transition: border-color 0.15s, background 0.15s;
+}
+
+.upload:hover {
+  border-color: var(--accent);
+  background: color-mix(in oklab, var(--accent) 6%, transparent);
+}
+
+.upload.busy {
+  opacity: 0.6;
+  cursor: progress;
+}
+
+.upload input {
+  display: none;
+}
+
+.upload .small {
+  font-weight: 400;
+}
+
+.queue > .error {
+  margin-top: 10px;
+}
+
+.tracks {
+  margin-top: 16px;
+}
+
+.tracks li {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  border-radius: var(--r-item);
+  transition: background 0.15s;
+}
+
+.tracks li:hover {
+  background: var(--sunken);
+}
+
+.tracks li.played {
+  opacity: 0.55;
+}
+
+.tracks li.current {
+  background: color-mix(in oklab, var(--accent) 12%, transparent);
+  box-shadow: inset 0 0 0 1px color-mix(in oklab, var(--accent) 30%, transparent);
+}
+
+.track {
+  flex: 1;
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  min-width: 0;
+  padding: 8px;
+  border: 0;
+  background: transparent;
+  text-align: left;
+  cursor: pointer;
+  border-radius: var(--r-item);
+}
+
+.tracks li.current .track-title {
+  font-weight: 600;
+}
+
+/* tiny equalizer next to the playing track */
+.eq {
+  display: inline-flex;
+  align-items: flex-end;
+  gap: 2px;
+  height: 14px;
+  margin-right: 6px;
+}
+
+.eq i {
+  width: 3px;
+  height: 100%;
+  border-radius: 2px;
+  background: var(--accent);
+  box-shadow: 0 0 6px var(--accent);
+  transform-origin: bottom;
+  animation: eq 0.9s ease-in-out infinite alternate;
+}
+
+.eq i:nth-child(2) {
+  animation-delay: -0.3s;
+}
+
+.eq i:nth-child(3) {
+  animation-delay: -0.6s;
+}
+
+@keyframes eq {
+  from {
+    transform: scaleY(0.25);
+  }
+  to {
+    transform: scaleY(1);
+  }
+}
+
+.empty {
+  margin-top: 18px;
+  font-size: 14px;
+}
+
+/* ---------- side: people + chat ---------- */
+.side {
+  grid-area: side;
+  display: flex;
+  flex-direction: column;
+  position: sticky;
+  top: 16px;
+  max-height: calc(100vh - 32px);
+}
+
+.avatar {
+  display: inline-grid;
+  place-items: center;
+  width: 30px;
+  height: 30px;
+  flex-shrink: 0;
+  border-radius: 50%;
+  font-family: var(--display);
+  font-size: 13px;
+  font-weight: 500;
+  color: #fff;
+  background: linear-gradient(140deg, hsl(var(--h) 75% 62%), hsl(calc(var(--h) + 40) 70% 50%));
+}
+
+.members {
+  list-style: none;
+  padding: 0;
+  margin: 0 0 22px;
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.members li {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+
+.chat {
+  flex: 1;
+  min-height: 180px;
+  overflow-y: auto;
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  margin: 0 -6px 12px;
+  padding: 0 6px;
+}
+
+.msg {
+  display: flex;
+  gap: 10px;
+  font-size: 14px;
+}
+
+.msg b {
+  font-weight: 600;
+  font-size: 13px;
+}
+
+.msg p {
+  overflow-wrap: anywhere;
+}
+
+.msg.mine b {
+  color: var(--accent);
+}
+
+.msg.system {
+  justify-content: center;
+  color: var(--muted);
+  font-size: 12px;
+  text-align: center;
+}
+
+.chat-form {
+  display: flex;
+  gap: 8px;
+}
+
+.chat-form .icon-btn {
+  width: 46px;
+  height: 46px;
+}
+
+/* ---------- overlay ---------- */
+.overlay {
+  position: fixed;
+  inset: 0;
+  z-index: 10;
+  display: grid;
+  place-items: center;
+  padding: 16px;
+  background: color-mix(in oklab, var(--bg) 60%, transparent);
+  backdrop-filter: blur(10px);
+}
+
+.overlay-card {
+  max-width: 380px;
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+  padding: 28px;
+  text-align: center;
+}
+
+.overlay-card h2 {
+  font-size: 22px;
+  font-weight: 700;
+}
+
+/* ---------- responsive ---------- */
+@media (max-width: 960px) {
+  .room {
+    grid-template-columns: minmax(0, 1fr);
+    grid-template-areas: 'top' 'stage' 'queue' 'side';
+    padding: 12px 16px 32px;
+  }
+
+  .side {
+    position: static;
+    max-height: none;
+  }
+
+  .chat {
+    max-height: 320px;
+  }
+
+  .home-main {
+    grid-template-columns: minmax(0, 1fr);
+    gap: 32px;
+  }
+}
+
+@media (max-width: 640px) {
+  .stage {
+    grid-template-columns: minmax(0, 1fr);
+    grid-template-areas: 'media' 'meta' 'widgets';
+    padding: 18px;
+    border-radius: var(--r-panel);
+  }
+
+  .stage:not(.is-clip) .cover,
+  .stage:not(.is-clip) .embed-youtube {
+    width: min(100%, 260px);
+  }
+
+  .stage-media {
+    display: flex;
+    justify-content: center;
+  }
+
+  .stage.is-clip .stage-media {
+    display: block;
+  }
+
+  .controls {
+    flex-wrap: wrap;
+    justify-content: center;
+  }
+
+  .segmented {
+    margin-left: 0;
+  }
+
+  .topbar-actions .btn {
+    padding: 8px 12px;
+  }
+
+  .panel {
+    padding: 16px;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    animation: none !important;
+    transition: none !important;
+  }
+}
