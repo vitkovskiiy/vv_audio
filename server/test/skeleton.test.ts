@@ -96,7 +96,7 @@ describe('global error handler', () => {
   });
 
   it('answers unknown routes with 404 NOT_FOUND in the same format', async () => {
-    const res = await app.inject('/nope');
+    const res = await app.inject('/api/nope');
     assert.equal(res.statusCode, 404);
     assert.equal(res.json<ErrorBody>().error.code, 'NOT_FOUND');
   });

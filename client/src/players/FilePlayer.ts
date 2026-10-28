@@ -1,5 +1,4 @@
-import type { Track } from '../../../shared/types';
-import type { PlayerAdapter } from './types';
+import type { PlayerAdapter, PlayableTrack } from './types';
 
 /** Plays uploaded audio and video files; a <video> element handles both. */
 export class FilePlayer implements PlayerAdapter {
@@ -15,7 +14,7 @@ export class FilePlayer implements PlayerAdapter {
     container.appendChild(this.media);
   }
 
-  load(track: Track): Promise<void> {
+  load(track: PlayableTrack): Promise<void> {
     return new Promise((resolve, reject) => {
       const m = this.media;
       const cleanup = () => {

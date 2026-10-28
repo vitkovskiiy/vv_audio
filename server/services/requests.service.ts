@@ -18,7 +18,7 @@ export async function createRequest(code: string, type: RequestType, itemId: str
     return repos.requests.createOrGetPending({ roomId: room.id, queueItemId: itemId, type, requestedBy: user.id });
   });
   if (result.created) events.roomChanged(room.code, 'request-created');
-  return { status: result.created ? 201 : 200, body: requestDto(result.request) };
+  return { status: result.created ? 201 : 200, body: requestDto(result.request, user.username) };
 }
 
 const DECIDED_STATUS = { approve: 'approved', reject: 'rejected' } as const;
@@ -57,5 +57,6 @@ export async function decide(code: string, requestId: string, decision: 'approve
   if (req.status !== DECIDED_STATUS[decision]) {
     throw new ConflictError('REQUEST_ALREADY_DECIDED', 'Цей запит уже вирішено інакше');
   }
-  return requestDto(req);
+  const requester = await repos.users.findById(req.requestedBy);
+  return requestDto(req, requester?.username ?? '?');
 }

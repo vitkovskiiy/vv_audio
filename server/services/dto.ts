@@ -31,10 +31,11 @@ export const playbackDto = (p: Playback, current: QueueEntry | undefined) => ({
 
 export const memberDto = (m: MemberEntry) => ({ username: m.username, role: m.role, plan: m.plan });
 
-export const requestDto = (r: RoomRequest) => ({
+export const requestDto = (r: RoomRequest, requestedBy: string) => ({
   id: r.id,
   type: r.type,
   itemId: r.queueItemId,
+  requestedBy,
   status: r.status,
   createdAt: r.createdAt.toISOString(),
   decidedAt: r.decidedAt?.toISOString() ?? null,

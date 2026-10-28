@@ -1,5 +1,4 @@
-import type { Track } from '../../../shared/types';
-import { loadScript, withTimeout, type PlayerAdapter } from './types';
+import { loadScript, withTimeout, type PlayerAdapter, type PlayableTrack } from './types';
 
 declare global {
   interface Window {
@@ -70,7 +69,7 @@ export class SpotifyPlayer implements PlayerAdapter {
     }
   };
 
-  async load(track: Track): Promise<void> {
+  async load(track: PlayableTrack): Promise<void> {
     const api = await withTimeout(loadApi(), 15000, 'Spotify-плеер не загрузился');
     this.playing = false;
     this.started = false;

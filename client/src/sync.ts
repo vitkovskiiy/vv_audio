@@ -1,8 +1,8 @@
-import type { RoomState, Source, Track } from '../../shared/types';
+import type { Playback, Source } from '../../shared/types';
 import { FilePlayer } from './players/FilePlayer';
 import { SoundCloudPlayer } from './players/SoundCloudPlayer';
 import { SpotifyPlayer } from './players/SpotifyPlayer';
-import type { PlayerAdapter } from './players/types';
+import type { PlayableTrack, PlayerAdapter } from './players/types';
 import { YouTubePlayer } from './players/YouTubePlayer';
 import { serverNow } from './socket';
 
@@ -10,7 +10,7 @@ const CHECK_INTERVAL_MS = 2000;
 
 export interface SyncCallbacks {
   onEnded(trackId: string): void;
-  onError(track: Track, message: string): void;
+  onError(track: PlayableTrack, message: string): void;
   onHint(hint: string | null): void;
   onActiveSource(source: Source | null): void;
 }
@@ -20,7 +20,7 @@ export class SyncEngine {
   private adapters: Record<Source, PlayerAdapter>;
   private active: PlayerAdapter | null = null;
   private loadedTrackId: string | null = null;
-  private state: RoomState | null = null;
+  private state: Playback | null = null;
   private running = false;
   private dirty = false;
   private timer: number | undefined;
@@ -54,7 +54,7 @@ export class SyncEngine {
     for (const a of Object.values(this.adapters)) a.pause();
   }
 
-  setState(state: RoomState) {
+  setState(state: Playback) {
     this.state = state;
     if (this.timer !== undefined) this.reconcile();
   }
@@ -62,7 +62,7 @@ export class SyncEngine {
   expectedPosition(): number {
     const s = this.state;
     if (!s) return 0;
-    return s.isPlaying ? s.positionSec + (serverNow() - s.updatedAtServerMs) / 1000 : s.positionSec;
+    return s.isPlaying ? s.positionSec + (serverNow() - new Date(s.updatedAt).getTime()) / 1000 : s.positionSec;
   }
 
   currentTime(): number {
@@ -91,7 +91,8 @@ export class SyncEngine {
 
   private async step() {
     const s = this.state;
-    const track = s?.queue[s.currentIndex];
+    // the queue item id identifies "this play of this track"
+    const track: PlayableTrack | undefined = s?.current ? { ...s.current.track, id: s.current.id } : undefined;
 
     if (!s || !track) {
       this.active?.pause();
@@ -115,7 +116,7 @@ export class SyncEngine {
         return;
       }
       // state may have moved on while loading
-      if (this.state?.queue[this.state.currentIndex]?.id !== track.id) return;
+      if (this.state?.current?.id !== track.id) return;
     }
 
     const a = this.active!;

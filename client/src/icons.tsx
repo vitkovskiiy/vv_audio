@@ -69,7 +69,20 @@ export const LogoutIcon = ({ size = 18 }: P) => (
     <path d="M14.5 4.5H18a1.5 1.5 0 0 1 1.5 1.5v12a1.5 1.5 0 0 1-1.5 1.5h-3.5M10 16.5 5.5 12 10 7.5M5.5 12H15" />
   </svg>
 );
-export const LinkIcon =({ size = 16 }: P) => (
+const stroke = (size: number, d: string) => (
+  <svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+    <path d={d} />
+  </svg>
+);
+export const ArrowUpIcon = ({ size = 16 }: P) => stroke(size, 'M12 19V5M6 11l6-6 6 6');
+export const ArrowDownIcon = ({ size = 16 }: P) => stroke(size, 'M12 5v14M6 13l6 6 6-6');
+/** "play next": a skip-forward arrow with a bar */
+export const PlayNextIcon = ({ size = 16 }: P) => stroke(size, 'M5 6l8 6-8 6V6ZM17 6v12');
+/** "ask the owner": a raised flag */
+export const FlagIcon = ({ size = 16 }: P) => stroke(size, 'M5 21V4M5 4h11l-2 4 2 4H5');
+export const CrownIcon = ({ size = 14 }: P) => svg(size, <path d="M3 8.5 7.5 12 12 5l4.5 7L21 8.5 19 18H5L3 8.5Z" />);
+export const TrashIcon = ({ size = 16 }: P) => stroke(size, 'M4 7h16M10 11v6M14 11v6M6 7l1 13h10l1-13M9 7V4h6v3');
+export const LinkIcon = ({ size = 16 }: P) => (
   <svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" aria-hidden="true">
     <path d="M10 14a4.5 4.5 0 0 0 6.4 0l3-3a4.5 4.5 0 0 0-6.4-6.4l-1.2 1.2M14 10a4.5 4.5 0 0 0-6.4 0l-3 3a4.5 4.5 0 0 0 6.4 6.4l1.2-1.2" />
   </svg>

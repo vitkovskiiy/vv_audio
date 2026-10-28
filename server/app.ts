@@ -1,4 +1,7 @@
+import fastifyStatic from '@fastify/static';
 import Fastify, { LogController, type FastifyError } from 'fastify';
+import { existsSync } from 'node:fs';
+import path from 'node:path';
 import { log, newBpId, runInContext, setUser } from './context';
 import { AppError, NotFoundError } from './errors';
 import { rootLogger } from './logger';
@@ -68,7 +71,14 @@ export function buildApp() {
     reply.status(status).send(body);
   });
 
-  app.setNotFoundHandler(() => {
+  // production: the built client is served by the same process (one port for a tunnel)
+  const dist = path.join(process.cwd(), 'dist');
+  const hasClient = existsSync(path.join(dist, 'index.html'));
+  if (hasClient) app.register(fastifyStatic, { root: dist, wildcard: false });
+
+  app.setNotFoundHandler((request, reply) => {
+    // client-side routes (/?room=…) fall back to the app; unknown API paths stay JSON 404
+    if (hasClient && request.method === 'GET' && !request.url.startsWith('/api/')) return reply.sendFile('index.html');
     throw new NotFoundError('Такого маршруту немає');
   });
 

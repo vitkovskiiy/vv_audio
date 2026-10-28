@@ -1,5 +1,4 @@
-import type { Track } from '../../../shared/types';
-import { loadScript, withTimeout, type PlayerAdapter } from './types';
+import { loadScript, withTimeout, type PlayerAdapter, type PlayableTrack } from './types';
 
 declare global {
   interface Window {
@@ -33,7 +32,7 @@ export class YouTubePlayer implements PlayerAdapter {
 
   constructor(private container: HTMLElement) {}
 
-  async load(track: Track): Promise<void> {
+  async load(track: PlayableTrack): Promise<void> {
     const YT = await withTimeout(loadApi(), 15000, 'YouTube не загрузился');
     if (this.player) {
       this.state = -1;

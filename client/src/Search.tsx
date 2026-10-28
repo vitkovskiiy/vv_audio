@@ -1,10 +1,11 @@
 import { useEffect, useRef, useState } from 'react';
 import { SOURCE_LABEL, type SearchGroup, type Source } from '../../shared/types';
+import { api } from './api';
 import { CheckIcon, CloseIcon, PlusIcon } from './icons';
 
 const DEBOUNCE_MS = 450;
 
-function fmt(sec?: number): string {
+function fmt(sec: number | null): string {
   if (!sec) return '';
   return `${Math.floor(sec / 60)}:${Math.floor(sec % 60).toString().padStart(2, '0')}`;
 }
@@ -24,8 +25,7 @@ export function Search({ addUrl }: { addUrl: (url: string) => Promise<boolean> }
   const reqId = useRef(0);
 
   useEffect(() => {
-    fetch('/api/search/sources')
-      .then((r) => r.json())
+    api<{ sources: Source[] }>('/api/search/sources')
       .then((d) => setSources(d.sources))
       .catch(() => setSources([]));
   }, []);
@@ -43,9 +43,8 @@ export function Search({ addUrl }: { addUrl: (url: string) => Promise<boolean> }
     setLoading(true);
     const t = window.setTimeout(async () => {
       try {
-        const res = await fetch(`/api/search?q=${encodeURIComponent(q)}`);
-        const data = await res.json();
-        if (id === reqId.current) setGroups(data.groups ?? []);
+        const data = await api<{ groups: SearchGroup[] }>(`/api/search?q=${encodeURIComponent(q)}`);
+        if (id === reqId.current) setGroups(data.groups);
       } catch {
         if (id === reqId.current) setGroups([]);
       } finally {
@@ -69,27 +68,27 @@ export function Search({ addUrl }: { addUrl: (url: string) => Promise<boolean> }
   };
 
   const placeholder = sources?.length
-    ? `Название трека или ссылка: ищем в ${sources.map((s) => SOURCE_LABEL[s]).join(', ')}`
-    : 'Ссылка на SoundCloud, YouTube или Spotify';
+    ? `Назва треку або посилання: шукаємо в ${sources.map((s) => SOURCE_LABEL[s]).join(', ')}`
+    : 'Посилання на SoundCloud, YouTube або Spotify';
 
   return (
     <div className="search">
       <form className={`search-box${loading ? ' loading' : ''}`} onSubmit={submit}>
-        <input value={text} onChange={(e) => setText(e.target.value)} placeholder={placeholder} aria-label="Поиск или ссылка" />
+        <input value={text} onChange={(e) => setText(e.target.value)} placeholder={placeholder} aria-label="Пошук або посилання" />
         {isLink(q) && (
           <button type="submit" className="btn primary small" disabled={adding !== null}>
-            Добавить
+            Додати
           </button>
         )}
         {q && !isLink(q) && (
-          <button type="button" className="icon-btn subtle" onClick={() => setText('')} aria-label="Очистить">
+          <button type="button" className="icon-btn subtle" onClick={() => setText('')} aria-label="Очистити">
             <CloseIcon />
           </button>
         )}
       </form>
 
       {sources?.length === 0 && q && !isLink(q) && (
-        <p className="muted small">Поиск по названию не настроен: добавьте ключи в файл .env (см. README). Ссылки работают и без него.</p>
+        <p className="muted small">Пошук за назвою не налаштовано: додайте ключі у файл .env (див. README). Посилання працюють і без нього.</p>
       )}
 
       {groups.map((g) => (
@@ -97,7 +96,7 @@ export function Search({ addUrl }: { addUrl: (url: string) => Promise<boolean> }
           <div className="results-head">
             <span className={`badge ${g.source}`}>{SOURCE_LABEL[g.source]}</span>
             {g.error && <span className="error small">{g.error}</span>}
-            {!g.error && !loading && g.results.length === 0 && <span className="muted small">ничего не нашлось</span>}
+            {!g.error && !loading && g.results.length === 0 && <span className="muted small">нічого не знайшлося</span>}
           </div>
           <ul>
             {g.results.map((r) => {
@@ -116,7 +115,7 @@ export function Search({ addUrl }: { addUrl: (url: string) => Promise<boolean> }
                     className={`icon-btn ${done ? 'done' : 'accent'}`}
                     disabled={adding !== null || done}
                     onClick={() => add(r.url)}
-                    aria-label={done ? 'Добавлено' : `Добавить «${r.title}» в очередь`}
+                    aria-label={done ? 'Додано' : `Додати «${r.title}» у чергу`}
                   >
                     {done ? <CheckIcon /> : <PlusIcon />}
                   </button>

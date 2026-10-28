@@ -77,7 +77,9 @@ export async function roomState(code: string) {
     queue: upcoming.map(queueItemDto),
     members: members.map(memberDto),
     // the owner decides on every request; members see only their own
-    requests: pending.filter((r) => isOwner || r.requestedBy === user.id).map(requestDto),
+    requests: pending
+      .filter((r) => isOwner || r.requestedBy === user.id)
+      .map((r) => requestDto(r, members.find((m) => m.userId === r.requestedBy)?.username ?? '?')),
     messages: messages.map(messageDto),
   };
 }

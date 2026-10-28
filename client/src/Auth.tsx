@@ -35,7 +35,7 @@ export function AuthForm({ invitedRoom, onAuth }: { invitedRoom: string; onAuth:
       const { user } = await api<{ user: User }>(`/api/auth/${mode}`, { body: { username, password } });
       onAuth(user);
     } catch (err) {
-      setError(err instanceof Error ? err.message : 'Не получилось');
+      setError(err instanceof Error ? err.message : 'Не вдалося');
     } finally {
       setBusy(false);
     }
@@ -46,28 +46,28 @@ export function AuthForm({ invitedRoom, onAuth }: { invitedRoom: string; onAuth:
     <form className="panel home-form" onSubmit={submit}>
       <div className="segmented wide" role="tablist">
         <button type="button" role="tab" aria-selected={!isRegister} className={!isRegister ? 'on' : ''} onClick={() => setMode('login')}>
-          Вход
+          Вхід
         </button>
         <button type="button" role="tab" aria-selected={isRegister} className={isRegister ? 'on' : ''} onClick={() => setMode('register')}>
-          Регистрация
+          Реєстрація
         </button>
       </div>
 
       {invitedRoom && (
         <p className="muted small">
-          Вас позвали в комнату <b className="code">{invitedRoom}</b>. {isRegister ? 'Заведите аккаунт' : 'Войдите'}, и вы сразу в ней окажетесь.
+          Вас запросили до кімнати <b className="code">{invitedRoom}</b>. {isRegister ? 'Заведіть акаунт' : 'Увійдіть'}, і одразу потрапите туди.
         </p>
       )}
 
       <label className="field">
-        <span>Логин</span>
+        <span>Логін</span>
         <input
           value={username}
           onChange={(e) => setUsername(e.target.value)}
           autoComplete="username"
           autoFocus
-          maxLength={24}
-          placeholder={isRegister ? 'Как вас будут видеть в комнате' : ''}
+          maxLength={64}
+          placeholder={isRegister ? 'Так вас бачитимуть у кімнаті' : ''}
         />
       </label>
       <label className="field">
@@ -78,11 +78,11 @@ export function AuthForm({ invitedRoom, onAuth }: { invitedRoom: string; onAuth:
           onChange={(e) => setPassword(e.target.value)}
           autoComplete={isRegister ? 'new-password' : 'current-password'}
           maxLength={128}
-          placeholder={isRegister ? 'Не меньше 8 символов' : ''}
+          placeholder={isRegister ? 'Не менше 8 символів' : ''}
         />
       </label>
       <button type="submit" className="btn primary wide" disabled={busy || !username.trim() || !password}>
-        {busy ? 'Секунду…' : isRegister ? 'Создать аккаунт' : 'Войти'}
+        {busy ? 'Секунду…' : isRegister ? 'Створити акаунт' : 'Увійти'}
       </button>
       {error && <p className="error">{error}</p>}
     </form>
