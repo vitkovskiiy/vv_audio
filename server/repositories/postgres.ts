@@ -188,48 +188,41 @@ export function createPostgresRepositories(db: Kysely<Database>): Repositories {
           .executeTakeFirstOrThrow();
         return Number(r.n);
       },
-      // NAIVE on purpose (N+1): one query for the list, then three per room. Measured by K16, fixed next.
+      // one statement whatever the number of rooms (was 1 + 3 per room, see K16)
       async summariesFor(userId) {
         const rows = await q()
           .selectFrom('room_members as m')
           .innerJoin('rooms as r', 'r.id', 'm.room_id')
-          .select(['r.id', 'r.code', 'm.role', 'm.last_visit'])
+          .leftJoin('room_members as om', (j) => j.onRef('om.room_id', '=', 'r.id').on('om.role', '=', 'owner'))
+          .leftJoin('users as ou', 'ou.id', 'om.user_id')
+          .leftJoin('room_playback as p', 'p.room_id', 'r.id')
+          .leftJoin('queue_items as ci', 'ci.id', 'p.current_item_id')
+          .leftJoin('tracks as ct', 'ct.id', 'ci.track_id')
+          .leftJoinLateral(
+            (eb) =>
+              eb
+                .selectFrom('queue_items as qi')
+                .select((e) => e.fn.countAll<string>().as('n'))
+                .whereRef('qi.room_id', '=', 'r.id')
+                .where('qi.status', '=', 'queued')
+                .as('qc'),
+            (j) => j.onTrue(),
+          )
+          .select(['r.code', 'm.role', 'm.last_visit', 'ou.username as owner_name', 'ct.title', 'ct.thumbnail', 'qc.n'])
           .where('m.user_id', '=', userId)
           .orderBy('m.last_visit', 'desc')
           .execute();
-        const out: RoomSummary[] = [];
-        for (const row of rows) {
-          const owner = await q()
-            .selectFrom('room_members as m')
-            .innerJoin('users as u', 'u.id', 'm.user_id')
-            .select('u.username')
-            .where('m.room_id', '=', row.id)
-            .where('m.role', '=', 'owner')
-            .executeTakeFirst();
-          const count = await q()
-            .selectFrom('queue_items')
-            .select((eb) => eb.fn.countAll<string>().as('n'))
-            .where('room_id', '=', row.id)
-            .where('status', '=', 'queued')
-            .executeTakeFirstOrThrow();
-          const current = await q()
-            .selectFrom('room_playback as p')
-            .innerJoin('queue_items as qi', 'qi.id', 'p.current_item_id')
-            .innerJoin('tracks as t', 't.id', 'qi.track_id')
-            .select(['t.title', 't.thumbnail'])
-            .where('p.room_id', '=', row.id)
-            .executeTakeFirst();
-          out.push({
-            code: row.code,
-            ownerName: owner?.username ?? null,
-            role: row.role,
-            trackCount: Number(count.n),
-            currentTitle: current?.title ?? null,
-            thumbnail: current?.thumbnail ?? null,
-            lastVisit: row.last_visit,
-          });
-        }
-        return out;
+        return rows.map(
+          (r): RoomSummary => ({
+            code: r.code,
+            ownerName: r.owner_name,
+            role: r.role,
+            trackCount: Number(r.n ?? 0),
+            currentTitle: r.title,
+            thumbnail: r.thumbnail,
+            lastVisit: r.last_visit,
+          }),
+        );
       },
     },
 
