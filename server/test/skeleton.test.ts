@@ -39,7 +39,11 @@ before(async () => {
   app.get('/test/crash', async () => {
     throw new Error('secret internal detail');
   });
-  app.post('/test/validate', { schema: { body: { type: 'object', required: ['text'], properties: { text: { type: 'string', minLength: 1 } } } } }, async () => ({ ok: true }));
+  app.post(
+    '/test/validate',
+    { schema: { body: { type: 'object', required: ['text'], properties: { text: { type: 'string', minLength: 1 } } } } },
+    async () => ({ ok: true }),
+  );
   await app.ready();
 });
 
@@ -102,7 +106,12 @@ describe('global error handler', () => {
   });
 
   it('keeps malformed JSON a client error', async () => {
-    const res = await app.inject({ method: 'POST', url: '/test/validate', headers: { 'content-type': 'application/json' }, payload: '{bad' });
+    const res = await app.inject({
+      method: 'POST',
+      url: '/test/validate',
+      headers: { 'content-type': 'application/json' },
+      payload: '{bad',
+    });
     assert.equal(res.statusCode, 400);
     assert.ok(res.json<ErrorBody>().error.code);
   });

@@ -86,7 +86,9 @@ export interface QueueRepo {
 
 export interface RequestsRepo {
   /** returns the existing pending request instead of creating a duplicate */
-  createOrGetPending(r: Pick<RoomRequest, 'roomId' | 'queueItemId' | 'type' | 'requestedBy'>): Promise<{ request: RoomRequest; created: boolean }>;
+  createOrGetPending(
+    r: Pick<RoomRequest, 'roomId' | 'queueItemId' | 'type' | 'requestedBy'>,
+  ): Promise<{ request: RoomRequest; created: boolean }>;
   find(id: string): Promise<RoomRequest | undefined>;
   /** pending → decided, only once; undefined when it was no longer pending */
   decide(id: string, status: Exclude<RequestStatus, 'pending'>, decidedBy: string | null): Promise<RoomRequest | undefined>;

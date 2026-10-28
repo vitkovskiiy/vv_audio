@@ -34,7 +34,10 @@ describe('K13: room creation is atomic', () => {
       throw new Error('simulated crash between writes');
     };
 
-    await assert.rejects(asUser(() => createRoom(undefined)), /simulated crash/);
+    await assert.rejects(
+      asUser(() => createRoom(undefined)),
+      /simulated crash/,
+    );
 
     assert.ok(createdCode, 'the room insert did run before the crash');
     assert.equal(await repos.rooms.codeExists(createdCode), false, 'room row was rolled back');

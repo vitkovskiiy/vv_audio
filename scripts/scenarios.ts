@@ -71,7 +71,11 @@ class Client {
   async req(method: string, path: string, body?: unknown, headers: Record<string, string> = {}): Promise<Res> {
     const res = await fetch(this.base + path, {
       method,
-      headers: { ...(body !== undefined ? { 'content-type': 'application/json' } : {}), ...(this.cookie ? { cookie: this.cookie } : {}), ...headers },
+      headers: {
+        ...(body !== undefined ? { 'content-type': 'application/json' } : {}),
+        ...(this.cookie ? { cookie: this.cookie } : {}),
+        ...headers,
+      },
       body: body !== undefined ? JSON.stringify(body) : undefined,
     });
     const set = res.headers.get('set-cookie');
@@ -148,7 +152,10 @@ await runInNewContext(async () => {
     check('S1 same login in another case → 409 USERNAME_TAKEN', dup.status === 409 && dup.body.error.code === 'USERNAME_TAKEN', dup.body);
     const long = await new Client(base, '').post('/api/auth/register', { username: 'x'.repeat(64), password: 'password123' });
     const tooLong = await new Client(base, '').post('/api/auth/register', { username: 'y'.repeat(65), password: 'password123' });
-    check('S1 login of 64 chars accepted, 65 → 400 VALIDATION_ERROR', long.status === 201 && tooLong.status === 400 && tooLong.body.error.code === 'VALIDATION_ERROR');
+    check(
+      'S1 login of 64 chars accepted, 65 → 400 VALIDATION_ERROR',
+      long.status === 201 && tooLong.status === 400 && tooLong.body.error.code === 'VALIDATION_ERROR',
+    );
     const wrong = await new Client(base, '').post('/api/auth/login', { username: a.name, password: 'wrong-password' });
     check('S1 wrong password → 401 UNAUTHENTICATED', wrong.status === 401 && wrong.body.error.code === 'UNAUTHENTICATED');
     await a.post('/api/auth/logout');
@@ -157,7 +164,11 @@ await runInNewContext(async () => {
 
   await block('K14 bpId in header and error body', async () => {
     const r = await new Client(base, '').get('/api/rooms/mine');
-    check('K14 error body carries the same bpId as the x-bp-id header', r.status === 401 && r.body.error.bpId === r.headers.get('x-bp-id'), r.body);
+    check(
+      'K14 error body carries the same bpId as the x-bp-id header',
+      r.status === 401 && r.body.error.bpId === r.headers.get('x-bp-id'),
+      r.body,
+    );
   });
 
   await block('S2/S3 rooms, K5 limit', async () => {
@@ -169,7 +180,11 @@ await runInNewContext(async () => {
     }
     check('K5 free user creates rooms 1–5 → 201 each', codes.length === 5);
     const sixth = await owner.post('/api/rooms');
-    check('K5 sixth room on free plan → 402 ROOM_LIMIT_EXCEEDED', sixth.status === 402 && sixth.body.error.code === 'ROOM_LIMIT_EXCEEDED', sixth.body);
+    check(
+      'K5 sixth room on free plan → 402 ROOM_LIMIT_EXCEEDED',
+      sixth.status === 402 && sixth.body.error.code === 'ROOM_LIMIT_EXCEEDED',
+      sixth.body,
+    );
     check('K5 nothing was created by the refused request', (await owner.get('/api/rooms/mine')).body.rooms.length === 5);
     await makePremium(owner);
     check('K5 premium has no room limit → 201', (await owner.post('/api/rooms')).status === 201);
@@ -190,10 +205,16 @@ await runInNewContext(async () => {
     const again = await o.post(`/api/rooms/${code}/queue`, { url }, h);
     const s = await state(o, code);
     const count = s.queue.length + (s.playback.current ? 1 : 0);
-    check('K9 retry with the same Idempotency-Key → same 201 answer', first.status === 201 && again.status === 201 && again.body.item.id === first.body.item.id);
+    check(
+      'K9 retry with the same Idempotency-Key → same 201 answer',
+      first.status === 201 && again.status === 201 && again.body.item.id === first.body.item.id,
+    );
     check('K9 …and still exactly one track in the room', count === 1, { count });
     const other = await o.post(`/api/rooms/${code}/queue`, { url: nextYt() }, h);
-    check('K9 same key with a different body → 422 IDEMPOTENCY_KEY_REUSED', other.status === 422 && other.body.error.code === 'IDEMPOTENCY_KEY_REUSED');
+    check(
+      'K9 same key with a different body → 422 IDEMPOTENCY_KEY_REUSED',
+      other.status === 422 && other.body.error.code === 'IDEMPOTENCY_KEY_REUSED',
+    );
     const msgKey = { 'idempotency-key': `key-${run}-msg` };
     await o.post(`/api/rooms/${code}/messages`, { text: 'привіт' }, msgKey);
     await o.post(`/api/rooms/${code}/messages`, { text: 'привіт' }, msgKey);
@@ -211,13 +232,23 @@ await runInNewContext(async () => {
     const expectedNext = before.queue[0].id;
     const reports = await Promise.all([o, ...members].map((c) => c.post(`/api/rooms/${code}/playback/ended`, { itemId: playing })));
     const after = await state(o, code);
-    check('K10 five simultaneous "ended" reports all get 200', reports.every((r) => r.status === 200));
-    check('K10 …and the queue moved exactly one track', after.playback.current.id === expectedNext && after.queue.length === before.queue.length - 1, {
-      expectedNext,
-      got: after.playback.current?.id,
-    });
+    check(
+      'K10 five simultaneous "ended" reports all get 200',
+      reports.every((r) => r.status === 200),
+    );
+    check(
+      'K10 …and the queue moved exactly one track',
+      after.playback.current.id === expectedNext && after.queue.length === before.queue.length - 1,
+      {
+        expectedNext,
+        got: after.playback.current?.id,
+      },
+    );
     const late = await o.post(`/api/rooms/${code}/playback/next`, { expectedItemId: playing });
-    check('Fork 1: a late "next" for an old track → 200 with the current state, nothing skipped', late.status === 200 && late.body.playback.current.id === expectedNext);
+    check(
+      'Fork 1: a late "next" for an old track → 200 with the current state, nothing skipped',
+      late.status === 200 && late.body.playback.current.id === expectedNext,
+    );
   });
 
   await block('K3 / K4 / K6 / K7 / K8 requests and removal', async () => {
@@ -236,7 +267,10 @@ await runInNewContext(async () => {
     const skipReq = await m.post(`/api/rooms/${code}/requests`, { type: 'skip', itemId: current });
     check('K3 member asks the owner to skip instead → 201 pending request', skipReq.status === 201 && skipReq.body.status === 'pending');
     const approvedSkip = await o.post(`/api/rooms/${code}/requests/${skipReq.body.id}/decision`, { decision: 'approve' });
-    check('K3 owner approves the skip → track changes', approvedSkip.status === 200 && (await state(o, code)).playback.current.id !== current);
+    check(
+      'K3 owner approves the skip → track changes',
+      approvedSkip.status === 200 && (await state(o, code)).playback.current.id !== current,
+    );
 
     check('K4 author removes own track at once → 204', (await m.del(`/api/rooms/${code}/queue/${mine}`)).status === 204);
     const foreign = await m.del(`/api/rooms/${code}/queue/${owners}`);
@@ -246,21 +280,34 @@ await runInNewContext(async () => {
     const r1 = await m.post(`/api/rooms/${code}/requests`, { type: 'remove', itemId: owners });
     const r2 = await m.post(`/api/rooms/${code}/requests`, { type: 'remove', itemId: owners });
     const pending = (await state(o, code)).requests.filter((r: any) => r.itemId === owners);
-    check('K6 the same removal request twice → 201 then 200 with the same request', r1.status === 201 && r2.status === 200 && r2.body.id === r1.body.id);
+    check(
+      'K6 the same removal request twice → 201 then 200 with the same request',
+      r1.status === 201 && r2.status === 200 && r2.body.id === r1.body.id,
+    );
     check('K6 …and only one request exists', pending.length === 1, pending.length);
 
     const approve1 = await o.post(`/api/rooms/${code}/requests/${r1.body.id}/decision`, { decision: 'approve' });
     const approve2 = await o.post(`/api/rooms/${code}/requests/${r1.body.id}/decision`, { decision: 'approve' });
     const reject = await o.post(`/api/rooms/${code}/requests/${r1.body.id}/decision`, { decision: 'reject' });
     check('K7 approve → 200, the same approve again → 200', approve1.status === 200 && approve2.status === 200);
-    check('K7 the opposite decision afterwards → 409 REQUEST_ALREADY_DECIDED', reject.status === 409 && reject.body.error.code === 'REQUEST_ALREADY_DECIDED');
+    check(
+      'K7 the opposite decision afterwards → 409 REQUEST_ALREADY_DECIDED',
+      reject.status === 409 && reject.body.error.code === 'REQUEST_ALREADY_DECIDED',
+    );
     check('K7 the approved track left the queue', !(await upcoming(o, code)).some((e) => e.id === owners));
 
     const r3 = await m.post(`/api/rooms/${code}/requests`, { type: 'remove', itemId: others });
     await m2.del(`/api/rooms/${code}/queue/${others}`); // its author removes it meanwhile
     const late = await o.post(`/api/rooms/${code}/requests/${r3.body.id}/decision`, { decision: 'approve' });
-    check('K8 approving a request whose track already left → 409 REQUEST_OBSOLETE', late.status === 409 && late.body.error.code === 'REQUEST_OBSOLETE', late.body);
-    check('K8 non-owner deciding → 403', (await m.post(`/api/rooms/${code}/requests/${r3.body.id}/decision`, { decision: 'approve' })).status === 403);
+    check(
+      'K8 approving a request whose track already left → 409 REQUEST_OBSOLETE',
+      late.status === 409 && late.body.error.code === 'REQUEST_OBSOLETE',
+      late.body,
+    );
+    check(
+      'K8 non-owner deciding → 403',
+      (await m.post(`/api/rooms/${code}/requests/${r3.body.id}/decision`, { decision: 'approve' })).status === 403,
+    );
   });
 
   await block('K1 premium moves, K2 play next', async () => {
@@ -278,11 +325,21 @@ await runInNewContext(async () => {
     const ids = async () => (await upcoming(o, code)).map((e) => e.id);
 
     const blocked = await pb.post(`/api/rooms/${code}/queue/${PB}/move`, { direction: 'up' });
-    check("K1 premium can't pass another premium user's earlier track → 409 MOVE_NOT_ALLOWED", blocked.status === 409 && blocked.body.error.code === 'MOVE_NOT_ALLOWED');
+    check(
+      "K1 premium can't pass another premium user's earlier track → 409 MOVE_NOT_ALLOWED",
+      blocked.status === 409 && blocked.body.error.code === 'MOVE_NOT_ALLOWED',
+    );
     await pa.post(`/api/rooms/${code}/queue/${PA}/move`, { direction: 'up' });
     await pa.post(`/api/rooms/${code}/queue/${PA}/move`, { direction: 'up' });
-    check('K1 premium raises own track above regular tracks', JSON.stringify(await ids()) === JSON.stringify([PA, R1, R2, PB]), await ids());
-    check('K1 premium can move own track down', (await pa.post(`/api/rooms/${code}/queue/${PA}/move`, { direction: 'down' })).status === 200);
+    check(
+      'K1 premium raises own track above regular tracks',
+      JSON.stringify(await ids()) === JSON.stringify([PA, R1, R2, PB]),
+      await ids(),
+    );
+    check(
+      'K1 premium can move own track down',
+      (await pa.post(`/api/rooms/${code}/queue/${PA}/move`, { direction: 'down' })).status === 200,
+    );
     const freeMove = await r.post(`/api/rooms/${code}/queue/${R2}/move`, { direction: 'up' });
     check('K1 free user cannot move tracks → 403', freeMove.status === 403);
     const notMine = await pa.post(`/api/rooms/${code}/queue/${R2}/move`, { direction: 'up' });
@@ -293,14 +350,22 @@ await runInNewContext(async () => {
     await add(pa, code);
     // moving PA down would make PA, PB, PA2, PA3 four premium tracks in a row
     const runLimit = await pa.post(`/api/rooms/${code}/queue/${PA}/move`, { direction: 'down' });
-    check('K1 a move that creates a longer premium run than allowed (> 2) → 409', runLimit.status === 409 && runLimit.body.error.code === 'MOVE_NOT_ALLOWED', runLimit.body);
+    check(
+      'K1 a move that creates a longer premium run than allowed (> 2) → 409',
+      runLimit.status === 409 && runLimit.body.error.code === 'MOVE_NOT_ALLOWED',
+      runLimit.body,
+    );
 
     // K2: the owner has no premium, so their "play next" can still be overtaken by a premium user
     await o.post(`/api/rooms/${code}/queue/${R2}/play-next`);
     check('K2 owner "play next" puts the track first', (await ids())[0] === R2);
     await pa.post(`/api/rooms/${code}/queue/${PA}/move`, { direction: 'up' });
     const overFreeOwner = await pa.post(`/api/rooms/${code}/queue/${PA}/move`, { direction: 'up' });
-    check('K2 owner without premium: a premium user can move above the "play next" track', overFreeOwner.status === 200 && (await ids())[0] === PA, await ids());
+    check(
+      'K2 owner without premium: a premium user can move above the "play next" track',
+      overFreeOwner.status === 200 && (await ids())[0] === PA,
+      await ids(),
+    );
 
     // owner with premium → their "play next" is protected
     const po = await user('k2premOwner');
@@ -322,7 +387,11 @@ await runInNewContext(async () => {
     const t0 = Date.now();
     const r = await o.post(`/api/rooms/${code}/queue`, { url: 'https://www.youtube.com/watch?v=FAILMETA001' });
     const ms = Date.now() - t0;
-    check('K11 provider down → track still added (201) with fallback title', r.status === 201 && r.body.metadataFallback === true && r.body.item.track.title === 'Трек YouTube', r.body);
+    check(
+      'K11 provider down → track still added (201) with fallback title',
+      r.status === 201 && r.body.metadataFallback === true && r.body.item.track.title === 'Трек YouTube',
+      r.body,
+    );
     check('K11 …after retries (≥ 800 ms of backoff) and within 8 s', ms >= 800 && ms < 8000, { ms });
     const bad = await o.post(`/api/rooms/${code}/queue`, { url: 'https://example.com/song' });
     check('S5 unsupported link → 400 VALIDATION_ERROR', bad.status === 400 && bad.body.error.code === 'VALIDATION_ERROR');
@@ -333,7 +402,11 @@ await runInNewContext(async () => {
     const r = await c.get('/api/search?q=fail%20song');
     const sc = r.body.groups.find((g: any) => g.source === 'soundcloud');
     const ytg = r.body.groups.find((g: any) => g.source === 'youtube');
-    check('K12 one search provider fails → 200, its group has error, others have results', r.status === 200 && !!sc.error && ytg.results.length > 0, r.body);
+    check(
+      'K12 one search provider fails → 200, its group has error, others have results',
+      r.status === 200 && !!sc.error && ytg.results.length > 0,
+      r.body,
+    );
   });
 
   await block('chat, favorites, my rooms', async () => {
@@ -350,7 +423,10 @@ await runInNewContext(async () => {
     await o.del(`/api/favorites/${trackId}`);
     check('S12 favourite removed', (await o.get('/api/favorites')).body.favorites.length === 0);
     const mine = (await o.get('/api/rooms/mine')).body.rooms;
-    check('S13 my rooms shows the room with its current track', mine.some((r: any) => r.code === code && r.currentTitle));
+    check(
+      'S13 my rooms shows the room with its current track',
+      mine.some((r: any) => r.code === code && r.currentTitle),
+    );
     const nonAdmin = await o.put(`/api/admin/users/${o.name}/plan`, { plan: 'premium' });
     check('S15 non-admin granting premium → 403', nonAdmin.status === 403);
   });
@@ -362,7 +438,10 @@ await runInNewContext(async () => {
     await add(o, code);
     check('K18 non-owner deleting the room → 403', (await m.del(`/api/rooms/${code}`)).status === 403);
     check('K18 owner deletes the room → 204', (await o.del(`/api/rooms/${code}`)).status === 204);
-    check("K18 the room disappears from the other member's list", !(await m.get('/api/rooms/mine')).body.rooms.some((r: any) => r.code === code));
+    check(
+      "K18 the room disappears from the other member's list",
+      !(await m.get('/api/rooms/mine')).body.rooms.some((r: any) => r.code === code),
+    );
     check('K18 the room no longer exists → 404', (await m.get(`/api/rooms/${code}`)).status === 404);
   });
 
@@ -395,7 +474,11 @@ await runInNewContext(async () => {
       const nFull = sqlCount(full.headers.get('x-bp-id'));
       const nShort = sqlCount(short.headers.get('x-bp-id'));
       console.log(`      room state: ${nShort} SQL with 2 queued tracks, ${nFull} SQL with 29 queued tracks`);
-      check('K16 entering a room costs the same number of SQL statements with 2 or 29 queued tracks', nFull === nShort && full.body.queue.length === 29, { nShort, nFull });
+      check(
+        'K16 entering a room costs the same number of SQL statements with 2 or 29 queued tracks',
+        nFull === nShort && full.body.queue.length === 29,
+        { nShort, nFull },
+      );
     });
 
     // ---------- K15 database outage while running, then recovery without a restart
@@ -405,7 +488,11 @@ await runInNewContext(async () => {
       proxy!.down();
       const during = await c.get(`/api/rooms/${code}`);
       const health = await c.get('/healthz');
-      check('K15 database down → requests get 503 DB_UNAVAILABLE', during.status === 503 && during.body?.error?.code === 'DB_UNAVAILABLE', during.body);
+      check(
+        'K15 database down → requests get 503 DB_UNAVAILABLE',
+        during.status === 503 && during.body?.error?.code === 'DB_UNAVAILABLE',
+        during.body,
+      );
       check('K15 database down → /healthz is 503', health.status === 503, health.body);
       proxy!.up();
       const after = await c.get(`/api/rooms/${code}`);
@@ -422,7 +509,10 @@ await runInNewContext(async () => {
       let out = '';
       child.stdout.on('data', (d) => (out += d));
       const code = await new Promise<number | null>((r) => child.on('exit', r));
-      check('K15 no database at startup → the server exits with code 1 and says why', code === 1 && out.includes('startup failed'), { code, out: out.slice(0, 300) });
+      check('K15 no database at startup → the server exits with code 1 and says why', code === 1 && out.includes('startup failed'), {
+        code,
+        out: out.slice(0, 300),
+      });
       check('K15 …and gives up quickly (< 10 s)', Date.now() - t0 < 10000, { ms: Date.now() - t0 });
     });
   }

@@ -13,7 +13,14 @@
     "db:up": "docker compose up -d --wait db",
     "db:migrate": "tsx server/db/cli.ts migrate",
     "db:seed": "tsx server/db/cli.ts seed",
-    "scenarios:pg": "tsx scripts/scenarios.ts postgres"
+    "scenarios:pg": "tsx scripts/scenarios.ts postgres",
+    "lint": "eslint .",
+    "lint:fix": "eslint . --fix",
+    "format": "prettier --write .",
+    "format:check": "prettier --check .",
+    "smoke": "tsx scripts/smoke.ts",
+    "prepare": "husky",
+    "check": "npm run format:check && npm run lint && npm run typecheck && npm test && npm run smoke && npm run build"
   },
   "dependencies": {
     "@fastify/static": "^10.1.8",
@@ -33,7 +40,25 @@
     "react": "^19.3.1",
     "react-dom": "^19.3.1",
     "socket.io-client": "^4.8.4",
-    "typescript": "^7.0.2",
-    "vite": "^8.3.5"
+    "typescript": "^6.0.3",
+    "vite": "^8.3.5",
+    "@eslint/js": "^10.0.1",
+    "@types/express": "^5.0.6",
+    "@types/multer": "^2.3.0",
+    "eslint": "^10.13.0",
+    "eslint-config-prettier": "^10.1.8",
+    "eslint-plugin-react-hooks": "^7.1.1",
+    "globals": "^17.13.0",
+    "husky": "^9.1.7",
+    "lint-staged": "^17.6.0",
+    "prettier": "^3.9.10",
+    "typescript-eslint": "^8.72.1"
+  },
+  "lint-staged": {
+    "*.{ts,tsx}": [
+      "prettier --write",
+      "eslint --fix"
+    ],
+    "*.{js,mjs,json,md,css,html,yml,yaml}": "prettier --write"
   }
 }

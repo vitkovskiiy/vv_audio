@@ -27,7 +27,7 @@ await runInNewContext(async () => {
   // D12: idempotency keys live 24 h; expired sessions are dropped too
   setInterval(
     () =>
-      runInNewContext(async () => {
+      void runInNewContext(async () => {
         const keys = await deps.repos.idempotency.purgeBefore(new Date(Date.now() - IDEMPOTENCY_TTL_MS));
         const sessions = await deps.repos.sessions.purgeExpired();
         log().info({ keys, sessions }, 'maintenance done');

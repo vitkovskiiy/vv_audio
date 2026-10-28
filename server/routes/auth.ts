@@ -14,18 +14,26 @@ const credentials = {
 } as const;
 
 export const authRoutes: FastifyPluginAsync = async (app) => {
-  app.post<{ Body: { username: string; password: string } }>('/api/auth/register', { schema: { body: credentials } }, async (request, reply) => {
-    const { user, session } = await auth.register(request.body.username, request.body.password);
-    setSessionCookie(request, reply, session.token, session.maxAgeSec);
-    reply.status(201);
-    return { user: userDto(user) };
-  });
+  app.post<{ Body: { username: string; password: string } }>(
+    '/api/auth/register',
+    { schema: { body: credentials } },
+    async (request, reply) => {
+      const { user, session } = await auth.register(request.body.username, request.body.password);
+      setSessionCookie(request, reply, session.token, session.maxAgeSec);
+      reply.status(201);
+      return { user: userDto(user) };
+    },
+  );
 
-  app.post<{ Body: { username: string; password: string } }>('/api/auth/login', { schema: { body: credentials } }, async (request, reply) => {
-    const { user, session } = await auth.login(request.body.username, request.body.password, request.ip);
-    setSessionCookie(request, reply, session.token, session.maxAgeSec);
-    return { user: userDto(user) };
-  });
+  app.post<{ Body: { username: string; password: string } }>(
+    '/api/auth/login',
+    { schema: { body: credentials } },
+    async (request, reply) => {
+      const { user, session } = await auth.login(request.body.username, request.body.password, request.ip);
+      setSessionCookie(request, reply, session.token, session.maxAgeSec);
+      return { user: userDto(user) };
+    },
+  );
 
   app.post('/api/auth/logout', async (request, reply) => {
     await auth.logout(readCookie(request, SESSION_COOKIE));

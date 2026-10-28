@@ -8,9 +8,7 @@ const USERNAME_RE = /^[\p{L}\p{N}_.-]{3,64}$/u;
 const SCRYPT = { N: 16384, r: 8, p: 1, keylen: 64 };
 
 function scrypt(password: string, salt: Buffer, opts: ScryptOptions): Promise<Buffer> {
-  return new Promise((resolve, reject) =>
-    scryptCb(password, salt, SCRYPT.keylen, opts, (err, key) => (err ? reject(err) : resolve(key))),
-  );
+  return new Promise((resolve, reject) => scryptCb(password, salt, SCRYPT.keylen, opts, (err, key) => (err ? reject(err) : resolve(key))));
 }
 
 export async function hashPassword(password: string): Promise<string> {
@@ -89,7 +87,7 @@ export async function login(username: string, password: string, ip: string) {
     throw new UnauthenticatedError('Невірний логін або пароль');
   }
   const { passHash: _, ...user } = row;
-  return { user: user as User, session: await startSession(row.id) };
+  return { user: user, session: await startSession(row.id) };
 }
 
 export async function logout(token: string | undefined) {

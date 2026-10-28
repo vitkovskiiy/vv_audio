@@ -19,6 +19,25 @@ export interface SearchProvider {
 }
 
 const LIMIT = 8;
+
+/** only the fields we read from each provider's search response */
+interface YoutubeSearch {
+  items: { id: { videoId: string }; snippet: { title: string; channelTitle: string; thumbnails?: { default?: { url: string } } } }[];
+}
+interface SoundcloudTrack {
+  permalink_url: string;
+  title: string;
+  user?: { username: string };
+  artwork_url?: string | null;
+  duration?: number;
+}
+interface SpotifyTrack {
+  external_urls: { spotify: string };
+  name: string;
+  artists?: { name: string }[];
+  album?: { images?: { url: string }[] };
+  duration_ms: number;
+}
 const TIMEOUT_MS = 8000;
 
 /** one failing provider must not break the others: each group carries its own error */
@@ -50,14 +69,18 @@ async function getJson<T>(url: string, init: RequestInit): Promise<T> {
 }
 
 const decode = (s: string) =>
-  s.replace(/&#(\d+);/g, (_, n) => String.fromCharCode(Number(n))).replace(/&quot;/g, '"').replace(/&#39;/g, "'").replace(/&amp;/g, '&');
+  s
+    .replace(/&#(\d+);/g, (_, n) => String.fromCharCode(Number(n)))
+    .replace(/&quot;/g, '"')
+    .replace(/&#39;/g, "'")
+    .replace(/&amp;/g, '&');
 
 function youtubeProvider(key: string): SearchProvider {
   return {
     source: 'youtube',
     async search(q, signal) {
       const params = new URLSearchParams({ part: 'snippet', type: 'video', videoEmbeddable: 'true', maxResults: String(LIMIT), q, key });
-      const d = await getJson<{ items: any[] }>(`https://www.googleapis.com/youtube/v3/search?${params}`, { signal });
+      const d = await getJson<YoutubeSearch>(`https://www.googleapis.com/youtube/v3/search?${params}`, { signal });
       return d.items.map((v) => ({
         source: 'youtube' as const,
         url: `https://www.youtube.com/watch?v=${v.id.videoId}`,
@@ -77,7 +100,10 @@ function clientCredentials(tokenUrl: string, id: string, secret: string) {
     const t = await getJson<{ access_token: string; expires_in: number }>(tokenUrl, {
       method: 'POST',
       signal,
-      headers: { Authorization: 'Basic ' + Buffer.from(`${id}:${secret}`).toString('base64'), 'Content-Type': 'application/x-www-form-urlencoded' },
+      headers: {
+        Authorization: 'Basic ' + Buffer.from(`${id}:${secret}`).toString('base64'),
+        'Content-Type': 'application/x-www-form-urlencoded',
+      },
       body: 'grant_type=client_credentials',
     });
     token = { value: t.access_token, expiresAt: Date.now() + (t.expires_in - 60) * 1000 };
@@ -91,7 +117,7 @@ function soundcloudProvider(id: string, secret: string): SearchProvider {
     source: 'soundcloud',
     async search(q, signal) {
       const params = new URLSearchParams({ q, limit: String(LIMIT), access: 'playable', linked_partitioning: 'true' });
-      const d = await getJson<{ collection: any[] } | any[]>(`https://api.soundcloud.com/tracks?${params}`, {
+      const d = await getJson<{ collection: SoundcloudTrack[] } | SoundcloudTrack[]>(`https://api.soundcloud.com/tracks?${params}`, {
         signal,
         headers: { Authorization: `OAuth ${await token(signal)}` },
       });
@@ -113,7 +139,7 @@ function spotifyProvider(id: string, secret: string): SearchProvider {
     source: 'spotify',
     async search(q, signal) {
       const params = new URLSearchParams({ q, type: 'track', limit: String(LIMIT) });
-      const d = await getJson<{ tracks: { items: any[] } }>(`https://api.spotify.com/v1/search?${params}`, {
+      const d = await getJson<{ tracks: { items: SpotifyTrack[] } }>(`https://api.spotify.com/v1/search?${params}`, {
         signal,
         headers: { Authorization: `Bearer ${await token(signal)}` },
       });
@@ -121,7 +147,7 @@ function spotifyProvider(id: string, secret: string): SearchProvider {
         source: 'spotify' as const,
         url: t.external_urls.spotify,
         title: t.name,
-        artist: t.artists?.map((a: { name: string }) => a.name).join(', ') ?? null,
+        artist: t.artists?.map((a) => a.name).join(', ') ?? null,
         thumbnail: t.album?.images?.at(-1)?.url ?? null,
         durationSec: t.duration_ms / 1000,
       }));
@@ -133,7 +159,8 @@ function spotifyProvider(id: string, secret: string): SearchProvider {
 export function liveSearchProviders(env = process.env): SearchProvider[] {
   const p: SearchProvider[] = [];
   if (env.YOUTUBE_API_KEY) p.push(youtubeProvider(env.YOUTUBE_API_KEY));
-  if (env.SOUNDCLOUD_CLIENT_ID && env.SOUNDCLOUD_CLIENT_SECRET) p.push(soundcloudProvider(env.SOUNDCLOUD_CLIENT_ID, env.SOUNDCLOUD_CLIENT_SECRET));
+  if (env.SOUNDCLOUD_CLIENT_ID && env.SOUNDCLOUD_CLIENT_SECRET)
+    p.push(soundcloudProvider(env.SOUNDCLOUD_CLIENT_ID, env.SOUNDCLOUD_CLIENT_SECRET));
   if (env.SPOTIFY_CLIENT_ID && env.SPOTIFY_CLIENT_SECRET) p.push(spotifyProvider(env.SPOTIFY_CLIENT_ID, env.SPOTIFY_CLIENT_SECRET));
   return p;
 }
@@ -149,13 +176,13 @@ export function staticSearchProviders(): SearchProvider[] {
     durationSec: 180 + n,
   });
   return [
-    { source: 'youtube', search: async (q) => [1, 2, 3].map((n) => fake('youtube', n, q)) },
+    { source: 'youtube', search: (q) => Promise.resolve([1, 2, 3].map((n) => fake('youtube', n, q))) },
     {
       source: 'soundcloud',
-      search: async (q) => {
-        if (q.includes('fail')) throw new Error('simulated provider outage');
-        return [1, 2].map((n) => fake('soundcloud', n, q));
-      },
+      search: (q) =>
+        q.includes('fail')
+          ? Promise.reject(new Error('simulated provider outage'))
+          : Promise.resolve([1, 2].map((n) => fake('soundcloud', n, q))),
     },
   ];
 }

@@ -43,7 +43,7 @@ export function attachRealtime(server: HttpServer): RoomEvents & { close(): Prom
     socket.on('subscribe', (code, ack) => {
       if (typeof ack !== 'function') return;
       // each socket event is its own business process with its own bpId
-      runInContext({ bpId: newBpId(), user: socket.data.user }, async () => {
+      void runInContext({ bpId: newBpId(), user: socket.data.user }, async () => {
         try {
           const { room } = await requireMember(String(code));
           await socket.join(room.code);
@@ -59,6 +59,6 @@ export function attachRealtime(server: HttpServer): RoomEvents & { close(): Prom
   return {
     roomChanged: (code, reason) => io.to(code).emit('room:changed', { code, reason }),
     roomDeleted: (code) => io.to(code).emit('room:deleted', { code }),
-    close: () => new Promise((resolve) => io.close(() => resolve())),
+    close: () => io.close(),
   };
 }

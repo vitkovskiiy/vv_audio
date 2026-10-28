@@ -10,7 +10,8 @@ type Code = { code: string };
 type CodeItem = { code: string; itemId: string };
 
 const codeItemParams = { type: 'object', required: ['code', 'itemId'], properties: { ...codeParams.properties, itemId: uuid } } as const;
-const body = (properties: Record<string, unknown>, required: string[]) => ({ type: 'object', required, properties, additionalProperties: false }) as const;
+const body = (properties: Record<string, unknown>, required: string[]) =>
+  ({ type: 'object', required, properties, additionalProperties: false }) as const;
 
 export const roomRoutes: FastifyPluginAsync = async (app) => {
   // rooms
@@ -22,9 +23,13 @@ export const roomRoutes: FastifyPluginAsync = async (app) => {
 
   app.get('/api/rooms/mine', async () => rooms.myRooms());
 
-  app.post<{ Params: Code }>('/api/rooms/:code/join', { schema: { params: codeParams } }, async (request) => rooms.joinRoom(request.params.code));
+  app.post<{ Params: Code }>('/api/rooms/:code/join', { schema: { params: codeParams } }, async (request) =>
+    rooms.joinRoom(request.params.code),
+  );
 
-  app.get<{ Params: Code }>('/api/rooms/:code', { schema: { params: codeParams } }, async (request) => rooms.roomState(request.params.code));
+  app.get<{ Params: Code }>('/api/rooms/:code', { schema: { params: codeParams } }, async (request) =>
+    rooms.roomState(request.params.code),
+  );
 
   app.delete<{ Params: Code }>('/api/rooms/:code', { schema: { params: codeParams } }, async (request, reply) => {
     await rooms.deleteRoom(request.params.code);
@@ -32,7 +37,9 @@ export const roomRoutes: FastifyPluginAsync = async (app) => {
   });
 
   // queue
-  app.get<{ Params: Code }>('/api/rooms/:code/queue', { schema: { params: codeParams } }, async (request) => queue.upcoming(request.params.code));
+  app.get<{ Params: Code }>('/api/rooms/:code/queue', { schema: { params: codeParams } }, async (request) =>
+    queue.upcoming(request.params.code),
+  );
 
   app.post<{ Params: Code; Body: { url: string } }>(
     '/api/rooms/:code/queue',
@@ -69,7 +76,9 @@ export const roomRoutes: FastifyPluginAsync = async (app) => {
     {
       schema: {
         params: codeParams,
-        body: body({ action: { enum: ['play', 'pause', 'seek'] }, positionSec: { type: 'number', minimum: 0, maximum: 86400 } }, ['action']),
+        body: body({ action: { enum: ['play', 'pause', 'seek'] }, positionSec: { type: 'number', minimum: 0, maximum: 86400 } }, [
+          'action',
+        ]),
       },
     },
     async (request) => playback.control(request.params.code, request.body.action, request.body.positionSec),
@@ -112,7 +121,9 @@ export const roomRoutes: FastifyPluginAsync = async (app) => {
   // chat
   app.get<{ Params: Code; Querystring: { limit?: number } }>(
     '/api/rooms/:code/messages',
-    { schema: { params: codeParams, querystring: { type: 'object', properties: { limit: { type: 'integer', minimum: 1, maximum: 200 } } } } },
+    {
+      schema: { params: codeParams, querystring: { type: 'object', properties: { limit: { type: 'integer', minimum: 1, maximum: 200 } } } },
+    },
     async (request) => social.messages(request.params.code, request.query.limit ?? 50),
   );
 

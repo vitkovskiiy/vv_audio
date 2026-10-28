@@ -12,20 +12,20 @@
 
 > д1 а д2 б д3 а д4 а д5 а д6 б д7 б д8 а д9 б д10 а д11 а д12 а
 
-| # | Питання | Рішення |
-|---|---|---|
-| D1 | Тип ідентифікаторів | UUIDv7 (`uuidv7()` у PostgreSQL 18) |
-| D2 | Код кімнати | `id uuid` PK + окрема унікальна колонка `code` |
-| D3 | Ролі | `room_members.role ∈ {owner, dj, listener}` + унікальний індекс «один власник на кімнату» |
-| D4 | Перелічення | `text` + `CHECK` |
-| D5 | Преміум / адмін | `users.plan ∈ {free, premium}` + `users.is_admin` |
-| D6 | Дані треку | окрема таблиця `tracks`, унікальна `(source, ref)`; `queue_items.track_id`, `favorites.track_id` |
-| D7 | Порядок черги 2:1 | зберігати `added_at` + `is_premium` на момент додавання; порядок — віконною функцією при читанні |
-| D8 | Видалені / зіграні | м'яке видалення: `status ∈ {queued, playing, played, removed}` |
-| D9 | Стан відтворення | окрема таблиця 1:1 `room_playback` |
-| D10 | Запити на видалення | `removal_requests.status ∈ {pending, approved, rejected, obsolete}` + унікальний індекс на відкритий запит |
-| D11 | Системні повідомлення | у `messages` з `kind ∈ {user, system}`, `user_id NULL` для системних |
-| D12 | Ключі ідемпотентності | зберігати 24 години, періодичне очищення |
+| #   | Питання               | Рішення                                                                                                    |
+| --- | --------------------- | ---------------------------------------------------------------------------------------------------------- |
+| D1  | Тип ідентифікаторів   | UUIDv7 (`uuidv7()` у PostgreSQL 18)                                                                        |
+| D2  | Код кімнати           | `id uuid` PK + окрема унікальна колонка `code`                                                             |
+| D3  | Ролі                  | `room_members.role ∈ {owner, dj, listener}` + унікальний індекс «один власник на кімнату»                  |
+| D4  | Перелічення           | `text` + `CHECK`                                                                                           |
+| D5  | Преміум / адмін       | `users.plan ∈ {free, premium}` + `users.is_admin`                                                          |
+| D6  | Дані треку            | окрема таблиця `tracks`, унікальна `(source, ref)`; `queue_items.track_id`, `favorites.track_id`           |
+| D7  | Порядок черги 2:1     | зберігати `added_at` + `is_premium` на момент додавання; порядок — віконною функцією при читанні           |
+| D8  | Видалені / зіграні    | м'яке видалення: `status ∈ {queued, playing, played, removed}`                                             |
+| D9  | Стан відтворення      | окрема таблиця 1:1 `room_playback`                                                                         |
+| D10 | Запити на видалення   | `removal_requests.status ∈ {pending, approved, rejected, obsolete}` + унікальний індекс на відкритий запит |
+| D11 | Системні повідомлення | у `messages` з `kind ∈ {user, system}`, `user_id NULL` для системних                                       |
+| D12 | Ключі ідемпотентності | зберігати 24 години, періодичне очищення                                                                   |
 
 ## Підсумкова ER-діаграма
 
@@ -57,4 +57,5 @@ erDiagram
   favorites { uuid user_id PK; uuid track_id PK; timestamptz created_at }
   idempotency_keys { uuid user_id PK; text key PK; text request_hash; int status_code; jsonb response; timestamptz created_at }
 ```
+
 ![](image.bmp)

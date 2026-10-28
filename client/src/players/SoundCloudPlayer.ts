@@ -63,11 +63,7 @@ export class SoundCloudPlayer implements PlayerAdapter {
       );
     }
 
-    this.duration = await withTimeout(
-      new Promise<number>((r) => this.widget.getDuration((ms: number) => r(ms / 1000))),
-      5000,
-      EMBED_ERROR,
-    );
+    this.duration = await withTimeout(new Promise<number>((r) => this.widget.getDuration((ms: number) => r(ms / 1000))), 5000, EMBED_ERROR);
     // a track that can't be embedded loads as an empty widget with zero duration
     if (!this.duration) throw new Error(EMBED_ERROR);
   }

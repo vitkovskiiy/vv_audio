@@ -40,7 +40,10 @@ export async function connectPostgres(databaseUrl: string): Promise<Repositories
     log().info({ dbTime: rows[0].now }, 'database reachable');
   } catch (err) {
     await db.destroy().catch(() => {});
-    throw new Error(`База даних недоступна (${databaseUrl.replace(/:[^:@/]*@/, ':***@')}): ${err instanceof Error ? err.message : String(err)}`);
+    throw new Error(
+      `База даних недоступна (${databaseUrl.replace(/:[^:@/]*@/, ':***@')}): ${err instanceof Error ? err.message : String(err)}`,
+      { cause: err },
+    );
   }
   return createPostgresRepositories(db);
 }

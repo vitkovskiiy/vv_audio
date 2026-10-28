@@ -36,7 +36,9 @@ export function useTheme(): [Theme, () => void] {
       const next = t === 'dark' ? 'light' : 'dark';
       try {
         localStorage.setItem(KEY, next);
-      } catch {}
+      } catch {
+        // storage can be unavailable (private mode); the choice just isn't remembered
+      }
       return next;
     });
 
@@ -59,7 +61,9 @@ export function useViewMode(): [ViewMode, (m: ViewMode) => void] {
     setMode(m);
     try {
       localStorage.setItem(VIEW_KEY, m);
-    } catch {}
+    } catch {
+      // storage can be unavailable (private mode); the choice just isn't remembered
+    }
   };
   return [mode, set];
 }

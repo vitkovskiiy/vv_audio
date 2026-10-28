@@ -43,7 +43,21 @@ const toRequest = (r: Selectable<RequestsTable>): RoomRequest => ({
 });
 
 /** connection-level failures: the database is down or unreachable, not a bug in the query */
-const CONNECTION_CODES = new Set(['ECONNREFUSED', 'ECONNRESET', 'ETIMEDOUT', 'ENOTFOUND', 'EHOSTUNREACH', '57P01', '57P02', '57P03', '08000', '08001', '08003', '08004', '08006']);
+const CONNECTION_CODES = new Set([
+  'ECONNREFUSED',
+  'ECONNRESET',
+  'ETIMEDOUT',
+  'ENOTFOUND',
+  'EHOSTUNREACH',
+  '57P01',
+  '57P02',
+  '57P03',
+  '08000',
+  '08001',
+  '08003',
+  '08004',
+  '08006',
+]);
 
 export function isConnectionError(err: unknown): boolean {
   const e = err as { code?: string; message?: string } | undefined;
@@ -58,9 +72,10 @@ function translateConnectionErrors<T extends object>(target: T): T {
     get(obj, prop, receiver) {
       const value = Reflect.get(obj, prop, receiver);
       if (typeof value === 'function') {
+        const fn = value as (...a: unknown[]) => unknown;
         return async (...args: unknown[]) => {
           try {
-            return await value.apply(obj, args);
+            return await fn.apply(obj, args);
           } catch (err) {
             if (isConnectionError(err)) throw new DbUnavailableError();
             throw err;
@@ -159,7 +174,10 @@ export function createPostgresRepositories(db: Kysely<Database>): Repositories {
         await q().deleteFrom('sessions').where('token_hash', '=', tokenHash).execute();
       },
       async purgeExpired() {
-        const r = await q().deleteFrom('sessions').where('expires_at', '<=', sql<Date>`now()`).executeTakeFirst();
+        const r = await q()
+          .deleteFrom('sessions')
+          .where('expires_at', '<=', sql<Date>`now()`)
+          .executeTakeFirst();
         return Number(r.numDeletedRows);
       },
     },
@@ -212,17 +230,15 @@ export function createPostgresRepositories(db: Kysely<Database>): Repositories {
           .where('m.user_id', '=', userId)
           .orderBy('m.last_visit', 'desc')
           .execute();
-        return rows.map(
-          (r): RoomSummary => ({
-            code: r.code,
-            ownerName: r.owner_name,
-            role: r.role,
-            trackCount: Number(r.n ?? 0),
-            currentTitle: r.title,
-            thumbnail: r.thumbnail,
-            lastVisit: r.last_visit,
-          }),
-        );
+        return rows.map((r): RoomSummary => ({
+          code: r.code,
+          ownerName: r.owner_name,
+          role: r.role,
+          trackCount: Number(r.n ?? 0),
+          currentTitle: r.title,
+          thumbnail: r.thumbnail,
+          lastVisit: r.last_visit,
+        }));
       },
     },
 
@@ -231,11 +247,21 @@ export function createPostgresRepositories(db: Kysely<Database>): Repositories {
         await q().insertInto('room_members').values({ room_id: m.roomId, user_id: m.userId, role: m.role }).execute();
       },
       async find(roomId, userId) {
-        const r = await q().selectFrom('room_members').selectAll().where('room_id', '=', roomId).where('user_id', '=', userId).executeTakeFirst();
+        const r = await q()
+          .selectFrom('room_members')
+          .selectAll()
+          .where('room_id', '=', roomId)
+          .where('user_id', '=', userId)
+          .executeTakeFirst();
         return r && { roomId: r.room_id, userId: r.user_id, role: r.role, lastVisit: r.last_visit };
       },
       async touch(roomId, userId) {
-        await q().updateTable('room_members').set({ last_visit: sql`now()` }).where('room_id', '=', roomId).where('user_id', '=', userId).execute();
+        await q()
+          .updateTable('room_members')
+          .set({ last_visit: sql`now()` })
+          .where('room_id', '=', roomId)
+          .where('user_id', '=', userId)
+          .execute();
       },
       async list(roomId) {
         const rows = await q()
@@ -245,7 +271,14 @@ export function createPostgresRepositories(db: Kysely<Database>): Repositories {
           .where('m.room_id', '=', roomId)
           .orderBy('m.last_visit', 'asc')
           .execute();
-        return rows.map((r) => ({ roomId: r.room_id, userId: r.user_id, role: r.role, lastVisit: r.last_visit, username: r.username, plan: r.plan }));
+        return rows.map((r) => ({
+          roomId: r.room_id,
+          userId: r.user_id,
+          role: r.role,
+          lastVisit: r.last_visit,
+          username: r.username,
+          plan: r.plan,
+        }));
       },
       async findOwner(roomId) {
         return (await repos.members.list(roomId)).find((m) => m.role === 'owner');
@@ -254,12 +287,28 @@ export function createPostgresRepositories(db: Kysely<Database>): Repositories {
 
     playback: {
       async create(roomId) {
-        const r = await q().insertInto('room_playback').values({ room_id: roomId, current_item_id: null }).returningAll().executeTakeFirstOrThrow();
-        return { roomId: r.room_id, currentItemId: r.current_item_id, isPlaying: r.is_playing, positionSec: r.position_sec, updatedAt: r.updated_at };
+        const r = await q()
+          .insertInto('room_playback')
+          .values({ room_id: roomId, current_item_id: null })
+          .returningAll()
+          .executeTakeFirstOrThrow();
+        return {
+          roomId: r.room_id,
+          currentItemId: r.current_item_id,
+          isPlaying: r.is_playing,
+          positionSec: r.position_sec,
+          updatedAt: r.updated_at,
+        };
       },
       async get(roomId) {
         const r = await q().selectFrom('room_playback').selectAll().where('room_id', '=', roomId).executeTakeFirstOrThrow();
-        return { roomId: r.room_id, currentItemId: r.current_item_id, isPlaying: r.is_playing, positionSec: r.position_sec, updatedAt: r.updated_at };
+        return {
+          roomId: r.room_id,
+          currentItemId: r.current_item_id,
+          isPlaying: r.is_playing,
+          positionSec: r.position_sec,
+          updatedAt: r.updated_at,
+        };
       },
       async update(roomId, patch) {
         const r = await q()
@@ -273,7 +322,13 @@ export function createPostgresRepositories(db: Kysely<Database>): Repositories {
           .where('room_id', '=', roomId)
           .returningAll()
           .executeTakeFirstOrThrow();
-        return { roomId: r.room_id, currentItemId: r.current_item_id, isPlaying: r.is_playing, positionSec: r.position_sec, updatedAt: r.updated_at };
+        return {
+          roomId: r.room_id,
+          currentItemId: r.current_item_id,
+          isPlaying: r.is_playing,
+          positionSec: r.position_sec,
+          updatedAt: r.updated_at,
+        };
       },
       async advanceIfCurrent(roomId, expected, next) {
         // the row lock makes concurrent callers queue up; the WHERE lets only the first one through
@@ -284,7 +339,15 @@ export function createPostgresRepositories(db: Kysely<Database>): Repositories {
           .where(sql<boolean>`current_item_id IS NOT DISTINCT FROM ${expected}::uuid`)
           .returningAll()
           .executeTakeFirst();
-        return r && { roomId: r.room_id, currentItemId: r.current_item_id, isPlaying: r.is_playing, positionSec: r.position_sec, updatedAt: r.updated_at };
+        return (
+          r && {
+            roomId: r.room_id,
+            currentItemId: r.current_item_id,
+            isPlaying: r.is_playing,
+            positionSec: r.position_sec,
+            updatedAt: r.updated_at,
+          }
+        );
       },
     },
 
@@ -294,11 +357,13 @@ export function createPostgresRepositories(db: Kysely<Database>): Repositories {
           .insertInto('tracks')
           .values({ source: t.source, ref: t.ref, title: t.title, artist: t.artist, thumbnail: t.thumbnail })
           .onConflict((oc) =>
-            oc.columns(['source', 'ref']).doUpdateSet((eb) =>
-              overwrite
-                ? { title: eb.ref('excluded.title'), artist: eb.ref('excluded.artist'), thumbnail: eb.ref('excluded.thumbnail') }
-                : { source: eb.ref('excluded.source') },
-            ),
+            oc
+              .columns(['source', 'ref'])
+              .doUpdateSet((eb) =>
+                overwrite
+                  ? { title: eb.ref('excluded.title'), artist: eb.ref('excluded.artist'), thumbnail: eb.ref('excluded.thumbnail') }
+                  : { source: eb.ref('excluded.source') },
+              ),
           )
           .returningAll()
           .executeTakeFirstOrThrow();
@@ -340,7 +405,11 @@ export function createPostgresRepositories(db: Kysely<Database>): Repositories {
         return r && toEntry(r);
       },
       async maxRank(roomId) {
-        const r = await q().selectFrom('queue_items').select((eb) => eb.fn.max('rank').as('m')).where('room_id', '=', roomId).executeTakeFirst();
+        const r = await q()
+          .selectFrom('queue_items')
+          .select((eb) => eb.fn.max('rank').as('m'))
+          .where('room_id', '=', roomId)
+          .executeTakeFirst();
         return Number(r?.m ?? 0);
       },
       async minRank(roomId) {
@@ -409,14 +478,24 @@ export function createPostgresRepositories(db: Kysely<Database>): Repositories {
           .execute();
       },
       async pending(roomId) {
-        const rows = await q().selectFrom('requests').selectAll().where('room_id', '=', roomId).where('status', '=', 'pending').orderBy('created_at').execute();
+        const rows = await q()
+          .selectFrom('requests')
+          .selectAll()
+          .where('room_id', '=', roomId)
+          .where('status', '=', 'pending')
+          .orderBy('created_at')
+          .execute();
         return rows.map(toRequest);
       },
     },
 
     messages: {
       async add(m) {
-        const r = await q().insertInto('messages').values({ room_id: m.roomId, user_id: m.userId, kind: m.kind, text: m.text }).returningAll().executeTakeFirstOrThrow();
+        const r = await q()
+          .insertInto('messages')
+          .values({ room_id: m.roomId, user_id: m.userId, kind: m.kind, text: m.text })
+          .returningAll()
+          .executeTakeFirstOrThrow();
         return { id: r.id, roomId: r.room_id, userId: r.user_id, kind: r.kind, text: r.text, createdAt: r.created_at };
       },
       async recent(roomId, limit) {
@@ -430,9 +509,15 @@ export function createPostgresRepositories(db: Kysely<Database>): Repositories {
           .orderBy('m.id', 'desc')
           .limit(limit)
           .execute();
-        return rows
-          .reverse()
-          .map((r) => ({ id: r.id, roomId: r.room_id, userId: r.user_id, kind: r.kind, text: r.text, createdAt: r.created_at, username: r.username }));
+        return rows.reverse().map((r) => ({
+          id: r.id,
+          roomId: r.room_id,
+          userId: r.user_id,
+          kind: r.kind,
+          text: r.text,
+          createdAt: r.created_at,
+          username: r.username,
+        }));
       },
     },
 
@@ -448,7 +533,11 @@ export function createPostgresRepositories(db: Kysely<Database>): Repositories {
         return rows.map(toTrack);
       },
       async add(userId, trackId) {
-        await q().insertInto('favorites').values({ user_id: userId, track_id: trackId }).onConflict((oc) => oc.doNothing()).execute();
+        await q()
+          .insertInto('favorites')
+          .values({ user_id: userId, track_id: trackId })
+          .onConflict((oc) => oc.doNothing())
+          .execute();
       },
       async remove(userId, trackId) {
         await q().deleteFrom('favorites').where('user_id', '=', userId).where('track_id', '=', trackId).execute();
@@ -457,7 +546,12 @@ export function createPostgresRepositories(db: Kysely<Database>): Repositories {
 
     idempotency: {
       async find(userId, key) {
-        const r = await q().selectFrom('idempotency_keys').selectAll().where('user_id', '=', userId).where('key', '=', key).executeTakeFirst();
+        const r = await q()
+          .selectFrom('idempotency_keys')
+          .selectAll()
+          .where('user_id', '=', userId)
+          .where('key', '=', key)
+          .executeTakeFirst();
         return (
           r && {
             userId: r.user_id,
@@ -472,7 +566,13 @@ export function createPostgresRepositories(db: Kysely<Database>): Repositories {
       async save(rec) {
         await q()
           .insertInto('idempotency_keys')
-          .values({ user_id: rec.userId, key: rec.key, request_hash: rec.requestHash, status_code: rec.statusCode, response: JSON.stringify(rec.response) })
+          .values({
+            user_id: rec.userId,
+            key: rec.key,
+            request_hash: rec.requestHash,
+            status_code: rec.statusCode,
+            response: JSON.stringify(rec.response),
+          })
           .execute();
       },
       async lock(userId, key) {

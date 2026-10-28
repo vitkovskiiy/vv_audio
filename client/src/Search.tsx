@@ -7,7 +7,9 @@ const DEBOUNCE_MS = 450;
 
 function fmt(sec: number | null): string {
   if (!sec) return '';
-  return `${Math.floor(sec / 60)}:${Math.floor(sec % 60).toString().padStart(2, '0')}`;
+  return `${Math.floor(sec / 60)}:${Math.floor(sec % 60)
+    .toString()
+    .padStart(2, '0')}`;
 }
 
 function isLink(s: string): boolean {
@@ -34,14 +36,10 @@ export function Search({ addUrl }: { addUrl: (url: string) => Promise<boolean> }
   const canSearch = !!sources?.length && q.length >= 2 && !isLink(q);
 
   useEffect(() => {
-    if (!canSearch) {
-      setGroups([]);
-      setLoading(false);
-      return;
-    }
+    if (!canSearch) return;
     const id = ++reqId.current;
-    setLoading(true);
-    const t = window.setTimeout(async () => {
+    const run = async () => {
+      setLoading(true);
       try {
         const data = await api<{ groups: SearchGroup[] }>(`/api/search?q=${encodeURIComponent(q)}`);
         if (id === reqId.current) setGroups(data.groups);
@@ -50,9 +48,14 @@ export function Search({ addUrl }: { addUrl: (url: string) => Promise<boolean> }
       } finally {
         if (id === reqId.current) setLoading(false);
       }
-    }, DEBOUNCE_MS);
+    };
+    const t = window.setTimeout(() => void run(), DEBOUNCE_MS);
     return () => window.clearTimeout(t);
   }, [q, canSearch]);
+
+  // results and the spinner only make sense while a search is possible
+  const shownGroups = canSearch ? groups : [];
+  const showLoading = canSearch && loading;
 
   const add = async (url: string) => {
     setAdding(url);
@@ -73,7 +76,7 @@ export function Search({ addUrl }: { addUrl: (url: string) => Promise<boolean> }
 
   return (
     <div className="search">
-      <form className={`search-box${loading ? ' loading' : ''}`} onSubmit={submit}>
+      <form className={`search-box${showLoading ? ' loading' : ''}`} onSubmit={submit}>
         <input value={text} onChange={(e) => setText(e.target.value)} placeholder={placeholder} aria-label="Пошук або посилання" />
         {isLink(q) && (
           <button type="submit" className="btn primary small" disabled={adding !== null}>
@@ -88,15 +91,17 @@ export function Search({ addUrl }: { addUrl: (url: string) => Promise<boolean> }
       </form>
 
       {sources?.length === 0 && q && !isLink(q) && (
-        <p className="muted small">Пошук за назвою не налаштовано: додайте ключі у файл .env (див. README). Посилання працюють і без нього.</p>
+        <p className="muted small">
+          Пошук за назвою не налаштовано: додайте ключі у файл .env (див. README). Посилання працюють і без нього.
+        </p>
       )}
 
-      {groups.map((g) => (
+      {shownGroups.map((g) => (
         <div key={g.source} className="results">
           <div className="results-head">
             <span className={`badge ${g.source}`}>{SOURCE_LABEL[g.source]}</span>
             {g.error && <span className="error small">{g.error}</span>}
-            {!g.error && !loading && g.results.length === 0 && <span className="muted small">нічого не знайшлося</span>}
+            {!g.error && !showLoading && g.results.length === 0 && <span className="muted small">нічого не знайшлося</span>}
           </div>
           <ul>
             {g.results.map((r) => {

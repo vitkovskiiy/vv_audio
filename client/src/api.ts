@@ -44,7 +44,7 @@ export async function api<T>(path: string, opts: Options = {}): Promise<T> {
     }
   }
   if (res.status === 204) return undefined as T;
-  const data = await res.json().catch(() => ({}));
+  const data = (await res.json().catch(() => ({}))) as unknown;
   if (!res.ok) {
     const err = (data as ApiErrorBody).error;
     if (res.status === 401 && path !== '/api/auth/login' && path !== '/api/me') window.dispatchEvent(new Event('vv-unauthorized'));

@@ -37,7 +37,7 @@ export function Home({ user, theme, toggleTheme, onLogout, openRoom }: Props) {
       .catch(() => setRooms([]));
 
   useEffect(() => {
-    load();
+    void load();
   }, []);
 
   const create = async () => {
@@ -149,7 +149,10 @@ export function Home({ user, theme, toggleTheme, onLogout, openRoom }: Props) {
               {owned.map((r) => (
                 <li key={r.code}>
                   <span>
-                    <b className="code">{r.code}</b> <span className="muted small">{r.currentTitle ?? 'нічого не грає'}, {ago(r.lastVisit)}</span>
+                    <b className="code">{r.code}</b>{' '}
+                    <span className="muted small">
+                      {r.currentTitle ?? 'нічого не грає'}, {ago(r.lastVisit)}
+                    </span>
                   </span>
                   <button className="btn small ghost" onClick={() => deleteRoom(r)}>
                     Видалити

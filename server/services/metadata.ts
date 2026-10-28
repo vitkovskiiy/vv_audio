@@ -128,9 +128,9 @@ export const liveMetadata: MetadataSource = {
  * so the retry-and-fallback path can be exercised through the public API.
  */
 export const staticMetadata: MetadataSource = {
-  async fetch(link) {
-    if (link.ref.includes('FAILMETA')) throw new Error('simulated provider outage');
+  fetch(link) {
+    if (link.ref.includes('FAILMETA')) return Promise.reject(new Error('simulated provider outage'));
     const n = link.ref.slice(-4);
-    return { title: `Static track ${n}`, artist: `Artist ${link.source}`, thumbnail: null };
+    return Promise.resolve({ title: `Static track ${n}`, artist: `Artist ${link.source}`, thumbnail: null });
   },
 };

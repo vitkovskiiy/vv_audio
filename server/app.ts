@@ -48,15 +48,15 @@ export function buildApp() {
 
     if (err instanceof AppError) {
       ({ status, code, message, details } = err);
-    } else if ((err as FastifyError).validation) {
+    } else if (err.validation) {
       status = 400;
       code = 'VALIDATION_ERROR';
       message = 'Некоректні дані запиту';
-      details = (err as FastifyError).validation;
-    } else if ((err as FastifyError).statusCode && (err as FastifyError).statusCode! < 500) {
+      details = err.validation;
+    } else if (err.statusCode && err.statusCode < 500) {
       // Fastify's own client errors: malformed JSON, body too large, wrong content type
-      status = (err as FastifyError).statusCode!;
-      code = (err as FastifyError).code ?? 'BAD_REQUEST';
+      status = err.statusCode!;
+      code = err.code ?? 'BAD_REQUEST';
       message = err.message;
     } else {
       status = 500;

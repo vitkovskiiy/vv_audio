@@ -26,7 +26,9 @@ import { ThemeToggle } from './ThemeToggle';
 
 function fmt(sec: number): string {
   if (!Number.isFinite(sec) || sec < 0) sec = 0;
-  return `${Math.floor(sec / 60)}:${Math.floor(sec % 60).toString().padStart(2, '0')}`;
+  return `${Math.floor(sec / 60)}:${Math.floor(sec % 60)
+    .toString()
+    .padStart(2, '0')}`;
 }
 
 /** stable hue per nickname for avatars */
@@ -130,7 +132,7 @@ export function Room({ roomId: code, user, theme, toggleTheme, onLeave, onLogout
     // several changes in a burst become one re-read
     const scheduleRefresh = () => {
       window.clearTimeout(pending);
-      pending = window.setTimeout(refresh, 80);
+      pending = window.setTimeout(() => void refresh(), 80);
     };
 
     const sentAt = Date.now();
@@ -151,7 +153,7 @@ export function Room({ roomId: code, user, theme, toggleTheme, onLeave, onLogout
     socket.connect();
 
     // a safety net if a notification is lost
-    const poll = window.setInterval(refresh, 15000);
+    const poll = window.setInterval(() => void refresh(), 15000);
     const tick = window.setInterval(() => setProgress({ time: engine.currentTime(), duration: engine.duration() }), 500);
 
     api<{ favorites: ApiTrack[] }>('/api/favorites')
@@ -194,7 +196,8 @@ export function Room({ roomId: code, user, theme, toggleTheme, onLeave, onLogout
   const isPremium = me?.plan === 'premium';
   const current = state?.playback.current ?? null;
   const playing = !!state?.playback.isPlaying && !!current;
-  const hasVideo = !!current && (current.track.source === 'youtube' || (current.track.source === 'file' && /\.(mp4|webm)$/i.test(current.track.ref)));
+  const hasVideo =
+    !!current && (current.track.source === 'youtube' || (current.track.source === 'file' && /\.(mp4|webm)$/i.test(current.track.ref)));
   const clip = hasVideo && viewMode === 'clip';
   const duration = progress.duration;
   const shownTime = dragging ?? progress.time;
@@ -233,10 +236,13 @@ export function Room({ roomId: code, user, theme, toggleTheme, onLeave, onLogout
     current &&
     (isOwner
       ? act(() => api(`/api/rooms/${code}/playback/next`, { body: { expectedItemId: current.id } }))
-      : act(() => api(`/api/rooms/${code}/requests`, { body: { type: 'skip', itemId: current.id } }), 'Запит на пропуск надіслано власнику'));
+      : act(
+          () => api(`/api/rooms/${code}/requests`, { body: { type: 'skip', itemId: current.id } }),
+          'Запит на пропуск надіслано власнику',
+        ));
 
   const commitSeek = () => {
-    if (dragging !== null) control('seek', dragging);
+    if (dragging !== null) void control('seek', dragging);
     setDragging(null);
   };
 
@@ -274,16 +280,29 @@ export function Room({ roomId: code, user, theme, toggleTheme, onLeave, onLogout
       <>
         {isPremium && mine && (
           <>
-            <button className="icon-btn subtle" onClick={() => act(() => api(`/api/rooms/${code}/queue/${item.id}/move`, { body: { direction: 'up' } }))} aria-label="Підняти вище">
+            <button
+              className="icon-btn subtle"
+              onClick={() => act(() => api(`/api/rooms/${code}/queue/${item.id}/move`, { body: { direction: 'up' } }))}
+              aria-label="Підняти вище"
+            >
               <ArrowUpIcon />
             </button>
-            <button className="icon-btn subtle" onClick={() => act(() => api(`/api/rooms/${code}/queue/${item.id}/move`, { body: { direction: 'down' } }))} aria-label="Опустити нижче">
+            <button
+              className="icon-btn subtle"
+              onClick={() => act(() => api(`/api/rooms/${code}/queue/${item.id}/move`, { body: { direction: 'down' } }))}
+              aria-label="Опустити нижче"
+            >
               <ArrowDownIcon />
             </button>
           </>
         )}
         {isOwner && (
-          <button className="icon-btn subtle" onClick={() => act(() => api(`/api/rooms/${code}/queue/${item.id}/play-next`, { method: 'POST' }))} aria-label="Грати наступним" title="Грати наступним">
+          <button
+            className="icon-btn subtle"
+            onClick={() => act(() => api(`/api/rooms/${code}/queue/${item.id}/play-next`, { method: 'POST' }))}
+            aria-label="Грати наступним"
+            title="Грати наступним"
+          >
             <PlayNextIcon />
           </button>
         )}
@@ -296,7 +315,11 @@ export function Room({ roomId: code, user, theme, toggleTheme, onLeave, onLogout
           <HeartIcon size={16} filled={favIds.has(item.track.id)} />
         </button>
         {isOwner || mine ? (
-          <button className="icon-btn subtle" onClick={() => act(() => api(`/api/rooms/${code}/queue/${item.id}`, { method: 'DELETE' }))} aria-label={`Прибрати «${item.track.title}»`}>
+          <button
+            className="icon-btn subtle"
+            onClick={() => act(() => api(`/api/rooms/${code}/queue/${item.id}`, { method: 'DELETE' }))}
+            aria-label={`Прибрати «${item.track.title}»`}
+          >
             <CloseIcon />
           </button>
         ) : myPending.has(`remove:${item.id}`) ? (
@@ -304,7 +327,12 @@ export function Room({ roomId: code, user, theme, toggleTheme, onLeave, onLogout
         ) : (
           <button
             className="icon-btn subtle"
-            onClick={() => act(() => api(`/api/rooms/${code}/requests`, { body: { type: 'remove', itemId: item.id } }), 'Запит на видалення надіслано власнику')}
+            onClick={() =>
+              act(
+                () => api(`/api/rooms/${code}/requests`, { body: { type: 'remove', itemId: item.id } }),
+                'Запит на видалення надіслано власнику',
+              )
+            }
             aria-label={`Попросити власника прибрати «${item.track.title}»`}
             title="Попросити власника прибрати"
           >
@@ -473,7 +501,12 @@ export function Room({ roomId: code, user, theme, toggleTheme, onLeave, onLogout
               Черга
               {state?.queue.length ? <span className="count">{state.queue.length}</span> : null}
             </button>
-            <button role="tab" aria-selected={tab === 'favorites'} className={tab === 'favorites' ? 'on' : ''} onClick={() => setTab('favorites')}>
+            <button
+              role="tab"
+              aria-selected={tab === 'favorites'}
+              className={tab === 'favorites' ? 'on' : ''}
+              onClick={() => setTab('favorites')}
+            >
               Обране
               {favorites.length ? <span className="count">{favorites.length}</span> : null}
             </button>
@@ -492,10 +525,16 @@ export function Room({ roomId: code, user, theme, toggleTheme, onLeave, onLogout
                     <b>{r.requestedBy}</b> {r.type === 'skip' ? 'просить пропустити' : 'просить прибрати'} «{titleOf(r.itemId)}»
                   </span>
                   <span className="request-actions">
-                    <button className="btn small primary" onClick={() => act(() => api(`/api/rooms/${code}/requests/${r.id}/decision`, { body: { decision: 'approve' } }))}>
+                    <button
+                      className="btn small primary"
+                      onClick={() => act(() => api(`/api/rooms/${code}/requests/${r.id}/decision`, { body: { decision: 'approve' } }))}
+                    >
                       Так
                     </button>
-                    <button className="btn small ghost" onClick={() => act(() => api(`/api/rooms/${code}/requests/${r.id}/decision`, { body: { decision: 'reject' } }))}>
+                    <button
+                      className="btn small ghost"
+                      onClick={() => act(() => api(`/api/rooms/${code}/requests/${r.id}/decision`, { body: { decision: 'reject' } }))}
+                    >
                       Ні
                     </button>
                   </span>
@@ -522,7 +561,11 @@ export function Room({ roomId: code, user, theme, toggleTheme, onLeave, onLogout
                         </span>
                       </span>
                     </span>
-                    <button className="icon-btn subtle heart on" onClick={() => toggleFavorite(f)} aria-label={`Прибрати «${f.title}» з обраного`}>
+                    <button
+                      className="icon-btn subtle heart on"
+                      onClick={() => toggleFavorite(f)}
+                      aria-label={`Прибрати «${f.title}» з обраного`}
+                    >
                       <HeartIcon size={16} filled />
                     </button>
                     {url && (
@@ -540,7 +583,11 @@ export function Room({ roomId: code, user, theme, toggleTheme, onLeave, onLogout
         ) : (
           <>
             <Search addUrl={addUrl} />
-            {isPremium && <p className="muted small premium-note">★ Ви преміум: свої треки можна піднімати стрілками, але не вище чужого преміум-треку й не більше двох преміум поспіль.</p>}
+            {isPremium && (
+              <p className="muted small premium-note">
+                ★ Ви преміум: свої треки можна піднімати стрілками, але не вище чужого преміум-треку й не більше двох преміум поспіль.
+              </p>
+            )}
             {state?.queue.length ? (
               <ol className="tracks">
                 {state.queue.map((item) => (
@@ -549,7 +596,11 @@ export function Room({ roomId: code, user, theme, toggleTheme, onLeave, onLogout
                       {item.track.thumbnail ? <img src={item.track.thumbnail} alt="" /> : <span className="thumb-empty">♪</span>}
                       <span className="track-text">
                         <span className="track-title">
-                          {item.isPremium && <span className="star" title="Преміум-трек">★ </span>}
+                          {item.isPremium && (
+                            <span className="star" title="Преміум-трек">
+                              ★{' '}
+                            </span>
+                          )}
                           {item.track.title}
                         </span>
                         <span className="muted small">
@@ -564,7 +615,9 @@ export function Room({ roomId: code, user, theme, toggleTheme, onLeave, onLogout
                 ))}
               </ol>
             ) : (
-              <p className="empty muted">{current ? 'Далі нічого немає. Додайте наступний трек.' : 'Поки порожньо. Перший трек одразу стане поточним.'}</p>
+              <p className="empty muted">
+                {current ? 'Далі нічого немає. Додайте наступний трек.' : 'Поки порожньо. Перший трек одразу стане поточним.'}
+              </p>
             )}
           </>
         )}

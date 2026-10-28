@@ -11,7 +11,10 @@ export function requireUser(): User {
 }
 
 export function normalizeCode(code: string): string {
-  return code.toUpperCase().replace(/[^A-Z0-9]/g, '').slice(0, 12);
+  return code
+    .toUpperCase()
+    .replace(/[^A-Z0-9]/g, '')
+    .slice(0, 12);
 }
 
 export async function findRoom(code: string): Promise<Room> {

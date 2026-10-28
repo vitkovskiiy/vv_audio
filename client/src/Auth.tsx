@@ -55,7 +55,8 @@ export function AuthForm({ invitedRoom, onAuth }: { invitedRoom: string; onAuth:
 
       {invitedRoom && (
         <p className="muted small">
-          Вас запросили до кімнати <b className="code">{invitedRoom}</b>. {isRegister ? 'Заведіть акаунт' : 'Увійдіть'}, і одразу потрапите туди.
+          Вас запросили до кімнати <b className="code">{invitedRoom}</b>. {isRegister ? 'Заведіть акаунт' : 'Увійдіть'}, і одразу потрапите
+          туди.
         </p>
       )}
 

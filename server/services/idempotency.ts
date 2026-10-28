@@ -29,7 +29,10 @@ export async function idempotent<T>(
   if (!KEY_RE.test(key)) throw new ValidationError('Idempotency-Key: 8–128 символів, літери, цифри, «-» або «_»');
 
   const user = requireUser();
-  const requestHash = createHash('sha256').update(scope).update(JSON.stringify(request ?? null)).digest('hex');
+  const requestHash = createHash('sha256')
+    .update(scope)
+    .update(JSON.stringify(request ?? null))
+    .digest('hex');
 
   return repos.transaction(async () => {
     await repos.idempotency.lock(user.id, key);

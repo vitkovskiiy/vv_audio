@@ -1,0 +1,2 @@
+# full gate before code leaves the machine: format, lint, types, smoke test, build
+npm run check

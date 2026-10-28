@@ -9,9 +9,9 @@ const migrations: Record<string, Migration> = {
   '0002_indexes': m0002,
 };
 
-export async function migrateToLatest(db: Kysely<any>): Promise<string[]> {
-  const migrator = new Migrator({ db, provider: { getMigrations: async () => migrations } });
+export async function migrateToLatest<DB>(db: Kysely<DB>): Promise<string[]> {
+  const migrator = new Migrator({ db, provider: { getMigrations: () => Promise.resolve(migrations) } });
   const { error, results } = await migrator.migrateToLatest();
-  if (error) throw error instanceof Error ? error : new Error(String(error));
+  if (error) throw error instanceof Error ? error : new Error('migration failed', { cause: error });
   return (results ?? []).filter((r) => r.status === 'Success').map((r) => r.migrationName);
 }

@@ -8,11 +8,11 @@ services:
       POSTGRES_PASSWORD: vv
       POSTGRES_DB: vv
     ports:
-      - "55432:5432"
+      - '55432:5432'
     volumes:
       - vv-pgdata:/var/lib/postgresql
     healthcheck:
-      test: ["CMD-SHELL", "pg_isready -U vv -d vv"]
+      test: ['CMD-SHELL', 'pg_isready -U vv -d vv']
       interval: 2s
       timeout: 3s
       retries: 30
