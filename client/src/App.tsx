@@ -8,7 +8,12 @@ import { useTheme } from './theme';
 import { ThemeToggle } from './ThemeToggle';
 
 function roomFromUrl(): string {
-  return new URLSearchParams(location.search).get('room')?.toUpperCase().replace(/[^A-Z0-9]/g, '') ?? '';
+  return (
+    new URLSearchParams(location.search)
+      .get('room')
+      ?.toUpperCase()
+      .replace(/[^A-Z0-9]/g, '') ?? ''
+  );
 }
 
 export function App() {

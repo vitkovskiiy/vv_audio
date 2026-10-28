@@ -68,7 +68,9 @@ export async function resolveUrl(raw: string): Promise<Resolved> {
 
   const ytId = youtubeId(url);
   if (ytId) {
-    const meta = await oembed(`https://www.youtube.com/oembed?format=json&url=${encodeURIComponent(`https://www.youtube.com/watch?v=${ytId}`)}`);
+    const meta = await oembed(
+      `https://www.youtube.com/oembed?format=json&url=${encodeURIComponent(`https://www.youtube.com/watch?v=${ytId}`)}`,
+    );
     return {
       source: 'youtube',
       ref: ytId,

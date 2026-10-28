@@ -11,14 +11,17 @@ declare global {
 let apiReady: Promise<any> | null = null;
 function loadApi(): Promise<any> {
   if (!apiReady) {
-    apiReady = new Promise((resolve) => {
+    apiReady = new Promise((resolve, reject) => {
       if (window.YT?.Player) return resolve(window.YT);
       const prev = window.onYouTubeIframeAPIReady;
       window.onYouTubeIframeAPIReady = () => {
         prev?.();
         resolve(window.YT);
       };
-      loadScript('https://www.youtube.com/iframe_api');
+      loadScript('https://www.youtube.com/iframe_api').catch((err) => {
+        apiReady = null; // allow a retry on the next load
+        reject(err instanceof Error ? err : new Error(String(err)));
+      });
     });
   }
   return apiReady;

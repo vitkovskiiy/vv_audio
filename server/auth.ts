@@ -10,9 +10,7 @@ const USERNAME_RE = /^[\p{L}\p{N}_.-]{3,24}$/u;
 const SCRYPT = { N: 16384, r: 8, p: 1, keylen: 64 };
 
 function scrypt(password: string, salt: Buffer, opts: ScryptOptions): Promise<Buffer> {
-  return new Promise((resolve, reject) =>
-    scryptCb(password, salt, SCRYPT.keylen, opts, (err, key) => (err ? reject(err) : resolve(key))),
-  );
+  return new Promise((resolve, reject) => scryptCb(password, salt, SCRYPT.keylen, opts, (err, key) => (err ? reject(err) : resolve(key))));
 }
 
 async function hashPassword(password: string): Promise<string> {
@@ -78,11 +76,14 @@ function recordFailure(keys: string[]) {
   }
 }
 
-setInterval(() => {
-  const now = Date.now();
-  for (const [k, f] of failures) if (f.resetAt <= now) failures.delete(k);
-  sessions.purgeExpired();
-}, 60 * 60 * 1000).unref();
+setInterval(
+  () => {
+    const now = Date.now();
+    for (const [k, f] of failures) if (f.resetAt <= now) failures.delete(k);
+    sessions.purgeExpired();
+  },
+  60 * 60 * 1000,
+).unref();
 
 declare global {
   // eslint-disable-next-line @typescript-eslint/no-namespace
@@ -108,7 +109,10 @@ export function requireAuth(req: Request, res: Response, next: NextFunction) {
 
 function readCredentials(body: unknown): { username: string; password: string } {
   const b = (body ?? {}) as Record<string, unknown>;
-  return { username: String(b.username ?? '').trim(), password: String(b.password ?? '') };
+  return {
+    username: typeof b.username === 'string' ? b.username.trim() : '',
+    password: typeof b.password === 'string' ? b.password : '',
+  };
 }
 
 export const authRouter = Router();

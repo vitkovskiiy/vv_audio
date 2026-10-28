@@ -12,7 +12,19 @@ import {
 } from '../../shared/types';
 import { api } from './api';
 import { ThemeToggle } from './ThemeToggle';
-import { CloseIcon, HeartIcon, LinkIcon, LogoutIcon, NextIcon, PauseIcon, PlayIcon, PlusIcon, PrevIcon, SendIcon, UploadIcon } from './icons';
+import {
+  CloseIcon,
+  HeartIcon,
+  LinkIcon,
+  LogoutIcon,
+  NextIcon,
+  PauseIcon,
+  PlayIcon,
+  PlusIcon,
+  PrevIcon,
+  SendIcon,
+  UploadIcon,
+} from './icons';
 import { Search } from './Search';
 import { socket, syncClock } from './socket';
 import { SyncEngine } from './sync';
@@ -118,7 +130,10 @@ export function Room({ roomId, user, theme, toggleTheme, onLeave, onLogout }: Pr
     socket.on('chat', (m) => setChat((c) => [...c.slice(-199), m]));
     socket.connect();
 
-    const resync = window.setInterval(() => socket.connected && syncClock(), 60000);
+    // a failed periodic clock sync just keeps the previous offset
+    const resync = window.setInterval(() => {
+      if (socket.connected) syncClock().catch(() => {});
+    }, 60000);
     const tick = window.setInterval(() => setProgress({ time: engine.currentTime(), duration: engine.duration() }), 500);
 
     return () => {
@@ -163,7 +178,7 @@ export function Room({ roomId, user, theme, toggleTheme, onLeave, onLogout }: Pr
       const body = new FormData();
       body.append('file', file);
       const res = await fetch('/api/upload', { method: 'POST', body });
-      const data = await res.json();
+      const data = (await res.json()) as { ref: string; title: string; error?: string };
       if (!res.ok) throw new Error(data.error);
       socket.emit('addFile', data, (r) => !r.ok && flash(r.error));
     } catch (e) {
@@ -333,7 +348,12 @@ export function Room({ roomId, user, theme, toggleTheme, onLeave, onLogout }: Pr
           </div>
 
           <div className="controls">
-            <button className="icon-btn" onClick={() => control({ type: 'prev' })} disabled={!state?.queue.length} aria-label="Предыдущий трек">
+            <button
+              className="icon-btn"
+              onClick={() => control({ type: 'prev' })}
+              disabled={!state?.queue.length}
+              aria-label="Предыдущий трек"
+            >
               <PrevIcon />
             </button>
             <button
@@ -385,7 +405,12 @@ export function Room({ roomId, user, theme, toggleTheme, onLeave, onLogout }: Pr
               Очередь
               {state?.queue.length ? <span className="count">{state.queue.length}</span> : null}
             </button>
-            <button role="tab" aria-selected={tab === 'favorites'} className={tab === 'favorites' ? 'on' : ''} onClick={() => setTab('favorites')}>
+            <button
+              role="tab"
+              aria-selected={tab === 'favorites'}
+              className={tab === 'favorites' ? 'on' : ''}
+              onClick={() => setTab('favorites')}
+            >
               Избранное
               {favorites.length ? <span className="count">{favorites.length}</span> : null}
             </button>
@@ -406,73 +431,87 @@ export function Room({ roomId, user, theme, toggleTheme, onLeave, onLogout }: Pr
                       </span>
                     </span>
                   </span>
-                  <button className="icon-btn subtle heart on" onClick={() => toggleFavorite(f)} aria-label={`Убрать «${f.title}» из избранного`}>
+                  <button
+                    className="icon-btn subtle heart on"
+                    onClick={() => toggleFavorite(f)}
+                    aria-label={`Убрать «${f.title}» из избранного`}
+                  >
                     <HeartIcon filled />
                   </button>
-                  <button className="icon-btn accent small-btn" onClick={() => queueFavorite(f)} aria-label={`Добавить «${f.title}» в очередь`}>
+                  <button
+                    className="icon-btn accent small-btn"
+                    onClick={() => queueFavorite(f)}
+                    aria-label={`Добавить «${f.title}» в очередь`}
+                  >
                     <PlusIcon />
                   </button>
                 </li>
               ))}
             </ul>
           ) : (
-            <p className="empty muted">Здесь будут треки, которые вы отметили сердечком. Избранное видно только вам и хранится в аккаунте.</p>
+            <p className="empty muted">
+              Здесь будут треки, которые вы отметили сердечком. Избранное видно только вам и хранится в аккаунте.
+            </p>
           )
         ) : (
           <>
-        <Search addUrl={addUrl} />
-        <label className={`upload${uploading ? ' busy' : ''}`}>
-          <input
-            ref={uploadRef}
-            type="file"
-            accept=".mp3,.m4a,.ogg,.wav,.mp4,.webm,audio/*,video/mp4,video/webm"
-            disabled={uploading}
-            onChange={(e) => e.target.files?.[0] && uploadFile(e.target.files[0])}
-          />
-          <UploadIcon />
-          <span>{uploading ? 'Загружаем файл…' : 'Загрузить свой файл'}</span>
-          <span className="muted small">mp3, m4a, ogg, wav, mp4, webm до {MAX_UPLOAD_MB} МБ</span>
-        </label>
-        {notice && <p className="error">{notice}</p>}
+            <Search addUrl={addUrl} />
+            <label className={`upload${uploading ? ' busy' : ''}`}>
+              <input
+                ref={uploadRef}
+                type="file"
+                accept=".mp3,.m4a,.ogg,.wav,.mp4,.webm,audio/*,video/mp4,video/webm"
+                disabled={uploading}
+                onChange={(e) => e.target.files?.[0] && uploadFile(e.target.files[0])}
+              />
+              <UploadIcon />
+              <span>{uploading ? 'Загружаем файл…' : 'Загрузить свой файл'}</span>
+              <span className="muted small">mp3, m4a, ogg, wav, mp4, webm до {MAX_UPLOAD_MB} МБ</span>
+            </label>
+            {notice && <p className="error">{notice}</p>}
 
-        {state?.queue.length ? (
-          <ol className="tracks">
-            {state.queue.map((t, i) => (
-              <li key={t.id} className={i === state.currentIndex ? 'current' : i < state.currentIndex ? 'played' : ''}>
-                <button className="track" onClick={() => control({ type: 'select', index: i })} title="Включить этот трек">
-                  {t.thumbnail ? <img src={t.thumbnail} alt="" /> : <span className="thumb-empty">♪</span>}
-                  <span className="track-text">
-                    <span className="track-title">{t.title}</span>
-                    <span className="muted small">
-                      {t.artist ? `${t.artist}, ` : ''}
-                      {SOURCE_LABEL[t.source]}
-                    </span>
-                  </span>
-                  {i === state.currentIndex && playing && (
-                    <span className="eq" aria-label="Играет">
-                      <i />
-                      <i />
-                      <i />
-                    </span>
-                  )}
-                </button>
-                <button
-                  className={`icon-btn subtle heart${favSet.has(favKey(t)) ? ' on' : ''}`}
-                  onClick={() => toggleFavorite(t)}
-                  aria-pressed={favSet.has(favKey(t))}
-                  aria-label={favSet.has(favKey(t)) ? `Убрать «${t.title}» из избранного` : `«${t.title}» в избранное`}
-                >
-                  <HeartIcon filled={favSet.has(favKey(t))} />
-                </button>
-                <button className="icon-btn subtle" onClick={() => control({ type: 'remove', index: i })} aria-label={`Убрать «${t.title}»`}>
-                  <CloseIcon />
-                </button>
-              </li>
-            ))}
-          </ol>
-        ) : (
-          <p className="empty muted">Пока пусто. Первый трек сразу станет текущим.</p>
-        )}
+            {state?.queue.length ? (
+              <ol className="tracks">
+                {state.queue.map((t, i) => (
+                  <li key={t.id} className={i === state.currentIndex ? 'current' : i < state.currentIndex ? 'played' : ''}>
+                    <button className="track" onClick={() => control({ type: 'select', index: i })} title="Включить этот трек">
+                      {t.thumbnail ? <img src={t.thumbnail} alt="" /> : <span className="thumb-empty">♪</span>}
+                      <span className="track-text">
+                        <span className="track-title">{t.title}</span>
+                        <span className="muted small">
+                          {t.artist ? `${t.artist}, ` : ''}
+                          {SOURCE_LABEL[t.source]}
+                        </span>
+                      </span>
+                      {i === state.currentIndex && playing && (
+                        <span className="eq" aria-label="Играет">
+                          <i />
+                          <i />
+                          <i />
+                        </span>
+                      )}
+                    </button>
+                    <button
+                      className={`icon-btn subtle heart${favSet.has(favKey(t)) ? ' on' : ''}`}
+                      onClick={() => toggleFavorite(t)}
+                      aria-pressed={favSet.has(favKey(t))}
+                      aria-label={favSet.has(favKey(t)) ? `Убрать «${t.title}» из избранного` : `«${t.title}» в избранное`}
+                    >
+                      <HeartIcon filled={favSet.has(favKey(t))} />
+                    </button>
+                    <button
+                      className="icon-btn subtle"
+                      onClick={() => control({ type: 'remove', index: i })}
+                      aria-label={`Убрать «${t.title}»`}
+                    >
+                      <CloseIcon />
+                    </button>
+                  </li>
+                ))}
+              </ol>
+            ) : (
+              <p className="empty muted">Пока пусто. Первый трек сразу станет текущим.</p>
+            )}
           </>
         )}
       </section>

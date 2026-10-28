@@ -40,10 +40,29 @@ function decodeEntities(s: string): string {
 
 type Provider = (q: string) => Promise<SearchResult[]>;
 
+/** only the fields we read from each provider's search response */
+interface YoutubeSearch {
+  items: { id: { videoId: string }; snippet: { title: string; channelTitle: string; thumbnails?: { default?: { url: string } } } }[];
+}
+interface SoundcloudTrack {
+  permalink_url: string;
+  title: string;
+  user?: { username: string; avatar_url?: string };
+  artwork_url?: string | null;
+  duration?: number;
+}
+interface SpotifyTrack {
+  external_urls: { spotify: string };
+  name: string;
+  artists?: { name: string }[];
+  album?: { images?: { url: string }[] };
+  duration_ms: number;
+}
+
 function youtubeProvider(key: string): Provider {
   return async (q) => {
     const params = new URLSearchParams({ part: 'snippet', type: 'video', videoEmbeddable: 'true', maxResults: String(LIMIT), q, key });
-    const data = await getJson<{ items: any[] }>(`https://www.googleapis.com/youtube/v3/search?${params}`);
+    const data = await getJson<YoutubeSearch>(`https://www.googleapis.com/youtube/v3/search?${params}`);
     return data.items.map((v) => ({
       source: 'youtube',
       url: `https://www.youtube.com/watch?v=${v.id.videoId}`,
@@ -64,7 +83,7 @@ function soundcloudProvider(id: string, secret: string): Provider {
   );
   return async (q) => {
     const params = new URLSearchParams({ q, limit: String(LIMIT), access: 'playable', linked_partitioning: 'true' });
-    const data = await getJson<{ collection: any[] } | any[]>(`https://api.soundcloud.com/tracks?${params}`, {
+    const data = await getJson<{ collection: SoundcloudTrack[] } | SoundcloudTrack[]>(`https://api.soundcloud.com/tracks?${params}`, {
       headers: { Authorization: `OAuth ${await token()}` },
     });
     const items = Array.isArray(data) ? data : data.collection;
@@ -73,7 +92,7 @@ function soundcloudProvider(id: string, secret: string): Provider {
       url: t.permalink_url,
       title: t.title,
       artist: t.user?.username,
-      thumbnail: t.artwork_url ?? t.user?.avatar_url,
+      thumbnail: t.artwork_url ?? t.user?.avatar_url ?? undefined,
       durationSec: t.duration ? t.duration / 1000 : undefined,
     }));
   };
@@ -89,14 +108,14 @@ function spotifyProvider(id: string, secret: string): Provider {
   );
   return async (q) => {
     const params = new URLSearchParams({ q, type: 'track', limit: String(LIMIT) });
-    const data = await getJson<{ tracks: { items: any[] } }>(`https://api.spotify.com/v1/search?${params}`, {
+    const data = await getJson<{ tracks: { items: SpotifyTrack[] } }>(`https://api.spotify.com/v1/search?${params}`, {
       headers: { Authorization: `Bearer ${await token()}` },
     });
     return data.tracks.items.map((t) => ({
       source: 'spotify',
       url: t.external_urls.spotify,
       title: t.name,
-      artist: t.artists?.map((a: { name: string }) => a.name).join(', '),
+      artist: t.artists?.map((a) => a.name).join(', '),
       thumbnail: t.album?.images?.at(-1)?.url,
       durationSec: t.duration_ms / 1000,
     }));
@@ -106,7 +125,8 @@ function spotifyProvider(id: string, secret: string): Provider {
 function configuredProviders(): Partial<Record<Source, Provider>> {
   const e = process.env;
   const p: Partial<Record<Source, Provider>> = {};
-  if (e.SOUNDCLOUD_CLIENT_ID && e.SOUNDCLOUD_CLIENT_SECRET) p.soundcloud = soundcloudProvider(e.SOUNDCLOUD_CLIENT_ID, e.SOUNDCLOUD_CLIENT_SECRET);
+  if (e.SOUNDCLOUD_CLIENT_ID && e.SOUNDCLOUD_CLIENT_SECRET)
+    p.soundcloud = soundcloudProvider(e.SOUNDCLOUD_CLIENT_ID, e.SOUNDCLOUD_CLIENT_SECRET);
   if (e.SPOTIFY_CLIENT_ID && e.SPOTIFY_CLIENT_SECRET) p.spotify = spotifyProvider(e.SPOTIFY_CLIENT_ID, e.SPOTIFY_CLIENT_SECRET);
   if (e.YOUTUBE_API_KEY) p.youtube = youtubeProvider(e.YOUTUBE_API_KEY);
   return p;
