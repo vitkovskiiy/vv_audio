@@ -22,6 +22,8 @@ export async function createRoom(idempotencyKey: string | undefined) {
   const { repos } = deps();
   const code = await uniqueCode();
   return idempotent(idempotencyKey, 'rooms:create', null, 201, async () => {
+    // two parallel creates must not both pass the limit check
+    await repos.users.lock(user.id);
     if (user.plan === 'free' && (await repos.rooms.countOwnedBy(user.id)) >= FREE_ROOM_LIMIT) {
       throw new PaymentRequiredError(
         'ROOM_LIMIT_EXCEEDED',

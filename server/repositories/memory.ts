@@ -87,6 +87,9 @@ export function createMemoryRepositories(): Repositories {
         const u = s.users.get(id);
         if (u) u.plan = plan;
       },
+      async lock() {
+        // transactions already run one at a time
+      },
     },
 
     sessions: {
@@ -100,6 +103,11 @@ export function createMemoryRepositories(): Repositories {
       },
       async delete(tokenHash) {
         s.sessions.delete(tokenHash);
+      },
+      async purgeExpired() {
+        let n = 0;
+        for (const [k, v] of s.sessions) if (v.expiresAt <= new Date() && s.sessions.delete(k)) n++;
+        return n;
       },
     },
 
@@ -195,10 +203,10 @@ export function createMemoryRepositories(): Repositories {
     },
 
     tracks: {
-      async upsert(t) {
+      async upsert(t, overwrite = true) {
         const existing = [...s.tracks.values()].find((x) => x.source === t.source && x.ref === t.ref);
         if (existing) {
-          Object.assign(existing, t);
+          if (overwrite) Object.assign(existing, t);
           return copy(existing);
         }
         const track: Track = { id: uuidv7(), ...t };
@@ -247,6 +255,7 @@ export function createMemoryRepositories(): Repositories {
       async setStatus(id, status) {
         s.queue.get(id)!.status = status;
       },
+      async lockRoom() {},
     },
 
     requests: {
@@ -316,6 +325,12 @@ export function createMemoryRepositories(): Repositories {
       },
       async save(r) {
         s.idempotency.set(`${r.userId}:${r.key}`, { ...r, createdAt: new Date() });
+      },
+      async lock() {},
+      async purgeBefore(date) {
+        let n = 0;
+        for (const [k, v] of s.idempotency) if (v.createdAt < date && s.idempotency.delete(k)) n++;
+        return n;
       },
     },
 

@@ -19,7 +19,8 @@ export async function addTrack(code: string, url: string, idempotencyKey: string
   const resolved = await resolveTrack(link, metadata);
 
   const result = await idempotent(idempotencyKey, `queue:add:${room.id}`, { url }, 201, async () => {
-    const track = await repos.tracks.upsert(resolved.track);
+    await repos.queue.lockRoom(room.id);
+    const track = await repos.tracks.upsert(resolved.track, !resolved.fallback);
     const item = await repos.queue.add({
       roomId: room.id,
       trackId: track.id,
@@ -85,6 +86,7 @@ export async function moveItem(code: string, itemId: string, direction: 'up' | '
   if (user.plan !== 'premium') throw new ForbiddenError('Переставляти треки в черзі можуть лише преміум-користувачі');
 
   await repos.transaction(async () => {
+    await repos.queue.lockRoom(room.id);
     const order = await repos.queue.upcoming(room.id);
     const idx = order.findIndex((e) => e.id === itemId);
     if (idx === -1) throw new NotFoundError('Цього треку немає серед наступних');
@@ -116,6 +118,7 @@ export async function playNext(code: string, itemId: string) {
   const { room, user } = await requireOwner(code);
   const { repos, events } = deps();
   await repos.transaction(async () => {
+    await repos.queue.lockRoom(room.id);
     const item = await liveItem(room.id, itemId);
     if (item.status !== 'queued') throw new ConflictError('ALREADY_PLAYING', 'Цей трек уже грає');
     await repos.queue.setRank(item.id, (await repos.queue.minRank(room.id)) - 1, user.plan === 'premium');

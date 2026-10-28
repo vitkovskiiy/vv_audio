@@ -32,6 +32,7 @@ export async function idempotent<T>(
   const requestHash = createHash('sha256').update(scope).update(JSON.stringify(request ?? null)).digest('hex');
 
   return repos.transaction(async () => {
+    await repos.idempotency.lock(user.id, key);
     const existing = await repos.idempotency.find(user.id, key);
     if (existing) {
       if (existing.requestHash !== requestHash) throw new IdempotencyKeyReusedError();

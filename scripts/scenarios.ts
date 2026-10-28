@@ -1,16 +1,43 @@
 /**
  * Runs every main scenario through the public HTTP API of a freshly started server.
  * Each check is labelled with the acceptance criterion it proves (K1…K18 from ai/09–ai/11).
- *   npm run scenarios                      — static prototype (in-memory storage)
+ *   npm run scenarios        — static prototype (in-memory storage)
+ *   npm run scenarios:pg     — the same scenarios on PostgreSQL (K17), plus K15 and K16
+ * The PostgreSQL run creates a throwaway database and drops it at the end.
  */
+import { spawn } from 'node:child_process';
+import { Writable } from 'node:stream';
 import { buildApp } from '../server/app';
-import { createDeps, settingsFromEnv } from '../server/bootstrap';
+import { createDeps, type Settings } from '../server/bootstrap';
 import { deps, setDeps } from '../server/container';
 import { runInNewContext } from '../server/context';
+import { migrateToLatest } from '../server/db/migrate';
 import { configureLogger } from '../server/logger';
+import { createKysely } from '../server/repositories/postgres';
+import { healthChecks } from '../server/routes/system';
 import { hashPassword } from '../server/services/auth.service';
+import { createDbProxy, createRunDatabase } from './pg-env';
 
-configureLogger(undefined, process.env.LOG_LEVEL ?? 'silent');
+try {
+  process.loadEnvFile();
+} catch {
+  // .env is optional
+}
+
+const mode = process.argv[2] === 'postgres' ? 'postgres' : 'memory';
+
+/** log lines are kept in memory: K16 counts the SQL statements logged under one request's bpId */
+const logLines: { bpId?: string; msg?: string }[] = [];
+configureLogger(
+  new Writable({
+    write(chunk, _enc, cb) {
+      for (const l of String(chunk).split('\n')) if (l) logLines.push(JSON.parse(l));
+      cb();
+    },
+  }),
+  'debug',
+);
+const sqlCount = (bpId: string | null) => logLines.filter((l) => l.bpId === bpId && l.msg === 'sql').length;
 
 let failed = 0;
 let passed = 0;
@@ -63,8 +90,30 @@ let ytCounter = 0;
 const nextYt = () => `https://www.youtube.com/watch?v=s${run.slice(-5)}${String(++ytCounter).padStart(5, '0')}`;
 
 await runInNewContext(async () => {
-  const settings = { ...settingsFromEnv(), sources: 'static' as const, seed: false };
+  let settings: Settings = { storage: 'memory', sources: 'static', seed: false };
+  let teardown = async () => {};
+  let proxy: Awaited<ReturnType<typeof createDbProxy>> | undefined;
+  if (mode === 'postgres') {
+    const adminUrl = process.env.DATABASE_URL ?? 'postgres://vv:vv@localhost:55432/vv';
+    const runDb = await createRunDatabase(adminUrl, `vv_scn_${run}`);
+    const migrator = createKysely(runDb.url);
+    await migrateToLatest(migrator);
+    await migrator.destroy();
+    // the app reaches the database through a proxy we can cut (K15)
+    const target = new URL(adminUrl);
+    proxy = await createDbProxy({ host: target.hostname, port: Number(target.port || 5432) });
+    const viaProxy = new URL(runDb.url);
+    viaProxy.hostname = '127.0.0.1';
+    viaProxy.port = String(proxy.port);
+    settings = { storage: 'postgres', databaseUrl: viaProxy.toString(), sources: 'static', seed: false };
+    teardown = async () => {
+      await deps().repos.close();
+      await proxy!.close();
+      await runDb.drop();
+    };
+  }
   setDeps(await createDeps(settings));
+  healthChecks.set(settings.storage, () => deps().repos.ping());
   const app = buildApp();
   await app.listen({ port: 0, host: '127.0.0.1' });
   const address = app.server.address();
@@ -317,7 +366,69 @@ await runInNewContext(async () => {
     check('K18 the room no longer exists → 404', (await m.get(`/api/rooms/${code}`)).status === 404);
   });
 
+  if (mode === 'postgres') {
+    // ---------- K16 N+1: the number of SQL statements must not grow with the data
+    await block('K16 query count', async () => {
+      const host = await user('k16host');
+      await makePremium(host);
+      const viewer = await user('k16viewer');
+      const codes: string[] = [];
+      for (let i = 0; i < 20; i++) codes.push(await newRoom(host, viewer));
+      for (const code of codes) for (let t = 0; t < 30; t++) await add(host, code);
+
+      const viewerSmall = await user('k16small');
+      for (const code of codes.slice(0, 5)) await viewerSmall.post(`/api/rooms/${code}/join`);
+
+      const big = await viewer.get('/api/rooms/mine');
+      const small = await viewerSmall.get('/api/rooms/mine');
+      const nBig = sqlCount(big.headers.get('x-bp-id'));
+      const nSmall = sqlCount(small.headers.get('x-bp-id'));
+      console.log(`      my rooms: ${nSmall} SQL for 5 rooms, ${nBig} SQL for 20 rooms`);
+      check('K16 "my rooms" for 20 rooms with 30 tracks each runs ≤ 3 SQL statements', big.body.rooms.length === 20 && nBig <= 3, { nBig });
+      check('K16 …and the count does not grow with the number of rooms', nBig === nSmall, { nSmall, nBig });
+
+      // both rooms have a current track; only the queue length differs
+      const full = await viewer.get(`/api/rooms/${codes[0]}`);
+      const shortCode = await newRoom(host, viewer);
+      for (let t = 0; t < 3; t++) await add(host, shortCode);
+      const short = await viewer.get(`/api/rooms/${shortCode}`);
+      const nFull = sqlCount(full.headers.get('x-bp-id'));
+      const nShort = sqlCount(short.headers.get('x-bp-id'));
+      console.log(`      room state: ${nShort} SQL with 2 queued tracks, ${nFull} SQL with 29 queued tracks`);
+      check('K16 entering a room costs the same number of SQL statements with 2 or 29 queued tracks', nFull === nShort && full.body.queue.length === 29, { nShort, nFull });
+    });
+
+    // ---------- K15 database outage while running, then recovery without a restart
+    await block('K15 outage', async () => {
+      const c = await user('k15');
+      const code = await newRoom(c);
+      proxy!.down();
+      const during = await c.get(`/api/rooms/${code}`);
+      const health = await c.get('/healthz');
+      check('K15 database down → requests get 503 DB_UNAVAILABLE', during.status === 503 && during.body?.error?.code === 'DB_UNAVAILABLE', during.body);
+      check('K15 database down → /healthz is 503', health.status === 503, health.body);
+      proxy!.up();
+      const after = await c.get(`/api/rooms/${code}`);
+      check('K15 database back → the same server answers 200 without a restart', after.status === 200, after.body);
+    });
+
+    // ---------- K15 refusing to start without a database
+    await block('K15 startup', async () => {
+      const t0 = Date.now();
+      const child = spawn(process.execPath, ['--import', 'tsx', 'server/main.ts'], {
+        env: { ...process.env, STORAGE: 'postgres', DATABASE_URL: 'postgres://vv:vv@127.0.0.1:1/none', PORT: '0', LOG_LEVEL: 'info' },
+        stdio: ['ignore', 'pipe', 'pipe'],
+      });
+      let out = '';
+      child.stdout.on('data', (d) => (out += d));
+      const code = await new Promise<number | null>((r) => child.on('exit', r));
+      check('K15 no database at startup → the server exits with code 1 and says why', code === 1 && out.includes('startup failed'), { code, out: out.slice(0, 300) });
+      check('K15 …and gives up quickly (< 10 s)', Date.now() - t0 < 10000, { ms: Date.now() - t0 });
+    });
+  }
+
   await app.close();
+  await teardown();
 });
 
 console.log(`\n${passed} passed, ${failed} failed`);

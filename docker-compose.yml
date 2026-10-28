@@ -1,0 +1,21 @@
+# Local PostgreSQL for development and test runs.
+# Port 55432, not 5432: isolated from any other Postgres on this machine.
+services:
+  db:
+    image: postgres:18
+    environment:
+      POSTGRES_USER: vv
+      POSTGRES_PASSWORD: vv
+      POSTGRES_DB: vv
+    ports:
+      - "55432:5432"
+    volumes:
+      - vv-pgdata:/var/lib/postgresql
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U vv -d vv"]
+      interval: 2s
+      timeout: 3s
+      retries: 30
+
+volumes:
+  vv-pgdata:

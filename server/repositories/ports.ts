@@ -27,12 +27,15 @@ export interface UsersRepo {
   findByUsername(username: string): Promise<UserWithPassword | undefined>;
   findById(id: string): Promise<User | undefined>;
   setPlan(id: string, plan: User['plan']): Promise<void>;
+  /** serialises concurrent operations of one user inside a transaction (e.g. the room limit check) */
+  lock(id: string): Promise<void>;
 }
 
 export interface SessionsRepo {
   create(tokenHash: string, userId: string, expiresAt: Date): Promise<void>;
   findUser(tokenHash: string): Promise<User | undefined>;
   delete(tokenHash: string): Promise<void>;
+  purgeExpired(): Promise<number>;
 }
 
 export interface RoomsRepo {
@@ -62,8 +65,8 @@ export interface PlaybackRepo {
 }
 
 export interface TracksRepo {
-  /** one row per (source, ref); refreshes title/artist when a real title replaces a fallback one */
-  upsert(t: Omit<Track, 'id'>): Promise<Track>;
+  /** one row per (source, ref); `overwrite: false` keeps the stored title (a fallback must not replace a real one) */
+  upsert(t: Omit<Track, 'id'>, overwrite?: boolean): Promise<Track>;
   findById(id: string): Promise<Track | undefined>;
 }
 
@@ -77,6 +80,8 @@ export interface QueueRepo {
   minRank(roomId: string): Promise<number>;
   setRank(id: string, rank: number, locked?: boolean): Promise<void>;
   setStatus(id: string, status: QueueStatus): Promise<void>;
+  /** serialises queue reordering in one room inside a transaction */
+  lockRoom(roomId: string): Promise<void>;
 }
 
 export interface RequestsRepo {
@@ -103,6 +108,9 @@ export interface FavoritesRepo {
 export interface IdempotencyRepo {
   find(userId: string, key: string): Promise<IdempotencyRecord | undefined>;
   save(r: Omit<IdempotencyRecord, 'createdAt'>): Promise<void>;
+  /** makes a second request with the same key wait until the first one commits */
+  lock(userId: string, key: string): Promise<void>;
+  purgeBefore(date: Date): Promise<number>;
 }
 
 export interface Repositories {
