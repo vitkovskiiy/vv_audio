@@ -1,8 +1,13 @@
 import Fastify, { LogController, type FastifyError } from 'fastify';
-import { log, newBpId, runInContext } from './context';
+import { log, newBpId, runInContext, setUser } from './context';
 import { AppError, NotFoundError } from './errors';
 import { rootLogger } from './logger';
+import { accountRoutes } from './routes/account';
+import { authRoutes } from './routes/auth';
+import { readCookie, SESSION_COOKIE } from './routes/http';
+import { roomRoutes } from './routes/rooms';
 import { systemRoutes } from './routes/system';
+import { userForToken } from './services/auth.service';
 
 export interface ErrorBody {
   error: { code: string; message: string; bpId: string; details?: unknown };
@@ -16,12 +21,19 @@ export function buildApp() {
     // the request ID is the business-process ID; Fastify binds it to request.log under this label
     genReqId: () => newBpId(),
     logController: new LogController({ requestIdLogLabel: 'bpId' }),
+    // behind a local tunnel (cloudflared, ngrok) trust its X-Forwarded-* for client IP and https
+    trustProxy: 'loopback',
   });
 
   // every hook and handler after this runs inside the request's context
   app.addHook('onRequest', (request, reply, done) => {
     reply.header('x-bp-id', request.id);
     runInContext({ bpId: request.id, log: request.log }, done);
+  });
+
+  // the initiating user joins the context once; services read it from there
+  app.addHook('onRequest', async (request) => {
+    setUser(await userForToken(readCookie(request, SESSION_COOKIE)));
   });
 
   // the one place where errors become HTTP responses
@@ -61,5 +73,8 @@ export function buildApp() {
   });
 
   app.register(systemRoutes);
+  app.register(authRoutes);
+  app.register(roomRoutes);
+  app.register(accountRoutes);
   return app;
 }

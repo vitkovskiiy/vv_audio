@@ -1,12 +1,8 @@
 import { AsyncLocalStorage } from 'node:async_hooks';
 import { randomUUID } from 'node:crypto';
 import type { FastifyBaseLogger as Logger } from 'fastify';
+import type { User } from './domain/types';
 import { rootLogger } from './logger';
-
-export interface AuthUser {
-  id: string;
-  username: string;
-}
 
 /**
  * Everything a business operation needs that is not one of its own arguments.
@@ -17,7 +13,7 @@ export interface RequestContext {
   bpId: string;
   /** logger already bound to bpId */
   log: Logger;
-  user?: AuthUser;
+  user?: User;
 }
 
 const storage = new AsyncLocalStorage<RequestContext>();
@@ -45,7 +41,7 @@ export function log(): Logger {
   return storage.getStore()?.log ?? rootLogger();
 }
 
-export function setUser(user: AuthUser | undefined) {
+export function setUser(user: User | undefined) {
   const ctx = storage.getStore();
   if (!ctx) throw new Error('setUser called outside a request context');
   ctx.user = user;

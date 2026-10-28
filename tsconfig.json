@@ -12,5 +12,5 @@
     "isolatedModules": true,
     "esModuleInterop": true
   },
-  "include": ["server", "shared", "client/src", "vite.config.ts"]
+  "include": ["server", "shared", "client/src", "scripts", "vite.config.ts"]
 }

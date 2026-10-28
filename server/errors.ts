@@ -44,6 +44,12 @@ export class ConflictError extends AppError {
   }
 }
 
+export class PaymentRequiredError extends AppError {
+  constructor(code: string, message: string) {
+    super(402, code, message);
+  }
+}
+
 export class IdempotencyKeyReusedError extends AppError {
   constructor() {
     super(422, 'IDEMPOTENCY_KEY_REUSED', 'Цей Idempotency-Key уже використано з іншим запитом');
