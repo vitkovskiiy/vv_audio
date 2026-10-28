@@ -106,7 +106,8 @@ function spotifyProvider(id: string, secret: string): Provider {
 function configuredProviders(): Partial<Record<Source, Provider>> {
   const e = process.env;
   const p: Partial<Record<Source, Provider>> = {};
-  if (e.SOUNDCLOUD_CLIENT_ID && e.SOUNDCLOUD_CLIENT_SECRET) p.soundcloud = soundcloudProvider(e.SOUNDCLOUD_CLIENT_ID, e.SOUNDCLOUD_CLIENT_SECRET);
+  if (e.SOUNDCLOUD_CLIENT_ID && e.SOUNDCLOUD_CLIENT_SECRET)
+    p.soundcloud = soundcloudProvider(e.SOUNDCLOUD_CLIENT_ID, e.SOUNDCLOUD_CLIENT_SECRET);
   if (e.SPOTIFY_CLIENT_ID && e.SPOTIFY_CLIENT_SECRET) p.spotify = spotifyProvider(e.SPOTIFY_CLIENT_ID, e.SPOTIFY_CLIENT_SECRET);
   if (e.YOUTUBE_API_KEY) p.youtube = youtubeProvider(e.YOUTUBE_API_KEY);
   return p;

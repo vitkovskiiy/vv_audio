@@ -55,7 +55,8 @@ export function AuthForm({ invitedRoom, onAuth }: { invitedRoom: string; onAuth:
 
       {invitedRoom && (
         <p className="muted small">
-          Вас позвали в комнату <b className="code">{invitedRoom}</b>. {isRegister ? 'Заведите аккаунт' : 'Войдите'}, и вы сразу в ней окажетесь.
+          Вас позвали в комнату <b className="code">{invitedRoom}</b>. {isRegister ? 'Заведите аккаунт' : 'Войдите'}, и вы сразу в ней
+          окажетесь.
         </p>
       )}
 

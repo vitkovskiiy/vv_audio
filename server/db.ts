@@ -114,9 +114,7 @@ const q = {
     'SELECT id, name, text, ts, system FROM (SELECT * FROM messages WHERE room_id = ? ORDER BY ts DESC LIMIT ?) ORDER BY ts ASC',
   ),
 
-  listFavorites: db.prepare(
-    'SELECT source, ref, title, artist, thumbnail FROM favorites WHERE user_id = ? ORDER BY created_at DESC',
-  ),
+  listFavorites: db.prepare('SELECT source, ref, title, artist, thumbnail FROM favorites WHERE user_id = ? ORDER BY created_at DESC'),
   addFavorite: db.prepare(
     'INSERT OR REPLACE INTO favorites (user_id, source, ref, title, artist, thumbnail, created_at) VALUES (?, ?, ?, ?, ?, ?, ?)',
   ),
@@ -206,7 +204,13 @@ export const favoritesDb = {
       artist: string | null;
       thumbnail: string | null;
     }[];
-    return rows.map((r) => ({ source: r.source, ref: r.ref, title: r.title, artist: r.artist ?? undefined, thumbnail: r.thumbnail ?? undefined }));
+    return rows.map((r) => ({
+      source: r.source,
+      ref: r.ref,
+      title: r.title,
+      artist: r.artist ?? undefined,
+      thumbnail: r.thumbnail ?? undefined,
+    }));
   },
   add(userId: number, f: Favorite) {
     q.addFavorite.run(userId, f.source, f.ref, f.title, f.artist ?? null, f.thumbnail ?? null, Date.now());

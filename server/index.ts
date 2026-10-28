@@ -214,7 +214,9 @@ app.get('/api/search/sources', requireAuth, (_req, res) => {
 });
 
 app.get('/api/search', requireAuth, async (req, res) => {
-  const q = String(req.query.q ?? '').trim().slice(0, 200);
+  const q = String(req.query.q ?? '')
+    .trim()
+    .slice(0, 200);
   if (!q) {
     res.status(400).json({ error: 'Пустой запрос' });
     return;
@@ -302,7 +304,10 @@ io.on('connection', (socket) => {
 
   socket.on('join', (id, ack) => {
     if (typeof ack !== 'function') return;
-    const cleanId = String(id ?? '').toUpperCase().replace(/[^A-Z0-9]/g, '').slice(0, 12);
+    const cleanId = String(id ?? '')
+      .toUpperCase()
+      .replace(/[^A-Z0-9]/g, '')
+      .slice(0, 12);
     if (roomId) return ack({ ok: false, error: 'Вы уже в комнате' });
     const r = cleanId ? getRoom(cleanId) : undefined;
     if (!r) return ack({ ok: false, error: 'Такой комнаты нет. Проверьте код или создайте новую' });
@@ -318,7 +323,9 @@ io.on('connection', (socket) => {
   });
 
   socket.on('chat', (text) => {
-    const t = String(text ?? '').trim().slice(0, 500);
+    const t = String(text ?? '')
+      .trim()
+      .slice(0, 500);
     if (t && roomId) say(t);
   });
 

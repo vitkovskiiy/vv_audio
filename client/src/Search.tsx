@@ -6,7 +6,9 @@ const DEBOUNCE_MS = 450;
 
 function fmt(sec?: number): string {
   if (!sec) return '';
-  return `${Math.floor(sec / 60)}:${Math.floor(sec % 60).toString().padStart(2, '0')}`;
+  return `${Math.floor(sec / 60)}:${Math.floor(sec % 60)
+    .toString()
+    .padStart(2, '0')}`;
 }
 
 function isLink(s: string): boolean {
