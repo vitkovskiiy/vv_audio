@@ -57,3 +57,4 @@ erDiagram
   favorites { uuid user_id PK; uuid track_id PK; timestamptz created_at }
   idempotency_keys { uuid user_id PK; text key PK; text request_hash; int status_code; jsonb response; timestamptz created_at }
 ```
+![](image.bmp)
