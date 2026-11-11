@@ -1,26 +1,28 @@
 import { io, type Socket } from 'socket.io-client';
-import type { ClientToServer, ServerToClient } from '../../shared/types';
 
-export type AppSocket = Socket<ServerToClient, ClientToServer>;
+interface ServerToClient {
+  'room:changed': (e: { code: string; reason: string }) => void;
+  'room:deleted': (e: { code: string }) => void;
+}
+interface ClientToServer {
+  subscribe: (code: string, ack: (res: { ok: boolean; error?: string }) => void) => void;
+}
 
-export const socket: AppSocket = io({ autoConnect: false });
+/** notifications only: "room X changed"; the state itself is always read over HTTP */
+export const socket: Socket<ServerToClient, ClientToServer> = io({ autoConnect: false });
 
-/** server clock minus local clock, in ms */
+/** server clock minus local clock, in ms; refined from every state response */
 let offsetMs = 0;
+let bestRtt = Infinity;
 
 export function serverNow(): number {
   return Date.now() + offsetMs;
 }
 
-/** NTP-style estimate: keep the sample with the smallest round trip. */
-export async function syncClock(samples = 6): Promise<void> {
-  let best = { rtt: Infinity, offset: 0 };
-  for (let i = 0; i < samples; i++) {
-    const t0 = Date.now();
-    const server = await new Promise<number>((resolve) => socket.emit('timesync', resolve));
-    const t1 = Date.now();
-    const rtt = t1 - t0;
-    if (rtt < best.rtt) best = { rtt, offset: server - (t0 + t1) / 2 };
-  }
-  offsetMs = best.offset;
+/** NTP-style: keep the estimate from the fastest round trip seen */
+export function observeServerTime(serverIso: string, sentAt: number, receivedAt: number) {
+  const rtt = receivedAt - sentAt;
+  if (rtt > bestRtt) return;
+  bestRtt = rtt;
+  offsetMs = new Date(serverIso).getTime() - (sentAt + receivedAt) / 2;
 }

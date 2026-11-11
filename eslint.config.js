@@ -44,6 +44,32 @@ export default defineConfig(
     languageOptions: { globals: globals.node },
   },
   {
+    // async by contract with synchronous bodies: in-memory repositories, Fastify plugins and handlers, test stubs
+    files: ['server/repositories/memory.ts', 'server/routes/**/*.ts', 'server/test/**/*.ts', 'scripts/**/*.ts'],
+    rules: { '@typescript-eslint/require-await': 'off' },
+  },
+  {
+    // tests and the scenario runner read untyped JSON responses on purpose
+    files: ['scripts/**/*.ts', 'server/test/**/*.ts'],
+    rules: {
+      '@typescript-eslint/no-explicit-any': 'off',
+      '@typescript-eslint/no-unsafe-assignment': 'off',
+      '@typescript-eslint/no-unsafe-call': 'off',
+      '@typescript-eslint/no-unsafe-member-access': 'off',
+      '@typescript-eslint/no-unsafe-return': 'off',
+      '@typescript-eslint/no-unsafe-argument': 'off',
+      // node:test runs describe/it itself; their promises are not meant to be awaited
+      '@typescript-eslint/no-floating-promises': [
+        'error',
+        {
+          allowForKnownSafeCalls: [
+            { from: 'package', package: 'node:test', name: ['describe', 'it', 'before', 'after', 'beforeEach', 'afterEach'] },
+          ],
+        },
+      ],
+    },
+  },
+  {
     files: ['**/*.js'],
     extends: [tseslint.configs.disableTypeChecked],
   },

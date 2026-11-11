@@ -1,42 +1,34 @@
-import { useEffect, useRef, useState, type CSSProperties } from 'react';
+import { useCallback, useEffect, useRef, useState, type CSSProperties } from 'react';
+import { SOURCE_LABEL, trackUrl, type ApiTrack, type QueueItem, type RoomState, type Source, type User } from '../../shared/types';
+import { api, ApiError, errorText } from './api';
 import {
-  SOURCE_LABEL,
-  trackUrl,
-  type ChatMessage,
-  type ControlAction,
-  type Favorite,
-  type Member,
-  type RoomState,
-  type Source,
-  type User,
-} from '../../shared/types';
-import { api } from './api';
-import { ThemeToggle } from './ThemeToggle';
-import {
+  ArrowDownIcon,
+  ArrowUpIcon,
   CloseIcon,
+  CrownIcon,
+  FlagIcon,
   HeartIcon,
   LinkIcon,
   LogoutIcon,
   NextIcon,
   PauseIcon,
   PlayIcon,
+  PlayNextIcon,
   PlusIcon,
-  PrevIcon,
   SendIcon,
-  UploadIcon,
+  TrashIcon,
 } from './icons';
 import { Search } from './Search';
-import { socket, syncClock } from './socket';
+import { observeServerTime, socket } from './socket';
 import { SyncEngine } from './sync';
 import { useViewMode, type Theme } from './theme';
-
-const MAX_UPLOAD_MB = 200;
+import { ThemeToggle } from './ThemeToggle';
 
 function fmt(sec: number): string {
   if (!Number.isFinite(sec) || sec < 0) sec = 0;
-  const m = Math.floor(sec / 60);
-  const s = Math.floor(sec % 60);
-  return `${m}:${s.toString().padStart(2, '0')}`;
+  return `${Math.floor(sec / 60)}:${Math.floor(sec % 60)
+    .toString()
+    .padStart(2, '0')}`;
 }
 
 /** stable hue per nickname for avatars */
@@ -63,26 +55,20 @@ interface Props {
   onLogout: () => void;
 }
 
-const favKey = (t: { source: Source; ref: string }) => `${t.source}|${t.ref}`;
-
-export function Room({ roomId, user, theme, toggleTheme, onLeave, onLogout }: Props) {
-  const name = user.username;
-  const [fatal, setFatal] = useState('');
-  const [favorites, setFavorites] = useState<Favorite[]>([]);
-  const [tab, setTab] = useState<'queue' | 'favorites'>('queue');
+export function Room({ roomId: code, user, theme, toggleTheme, onLeave, onLogout }: Props) {
   const [state, setState] = useState<RoomState | null>(null);
-  const [members, setMembers] = useState<Member[]>([]);
-  const [chat, setChat] = useState<ChatMessage[]>([]);
-  const [connected, setConnected] = useState(false);
+  const [fatal, setFatal] = useState('');
+  const [live, setLive] = useState(false);
   const [audioOn, setAudioOn] = useState(false);
   const [activeSource, setActiveSource] = useState<Source | null>(null);
   const [hint, setHint] = useState<string | null>(null);
-  const [notice, setNotice] = useState('');
-  const [uploading, setUploading] = useState(false);
+  const [notice, setNotice] = useState<{ text: string; error: boolean } | null>(null);
   const [chatText, setChatText] = useState('');
   const [progress, setProgress] = useState({ time: 0, duration: 0 });
   const [dragging, setDragging] = useState<number | null>(null);
   const [copied, setCopied] = useState(false);
+  const [favorites, setFavorites] = useState<ApiTrack[]>([]);
+  const [tab, setTab] = useState<'queue' | 'favorites'>('queue');
   const [viewMode, setViewMode] = useViewMode();
 
   const ytRef = useRef<HTMLDivElement>(null);
@@ -91,169 +77,113 @@ export function Room({ roomId, user, theme, toggleTheme, onLeave, onLogout }: Pr
   const fileMediaRef = useRef<HTMLDivElement>(null);
   const engineRef = useRef<SyncEngine | null>(null);
   const chatRef = useRef<HTMLDivElement>(null);
-  const uploadRef = useRef<HTMLInputElement>(null);
 
-  const flash = (msg: string) => {
-    setNotice(msg);
-    window.setTimeout(() => setNotice((n) => (n === msg ? '' : n)), 6000);
-  };
+  const flash = useCallback((text: string, error = false) => {
+    setNotice({ text, error });
+    window.setTimeout(() => setNotice((n) => (n?.text === text ? null : n)), 6000);
+  }, []);
+
+  const apply = useCallback((s: RoomState) => {
+    setState(s);
+    engineRef.current?.setState(s.playback);
+  }, []);
+
+  /** the single way to read room state: over HTTP, also measuring the server clock */
+  const refresh = useCallback(async () => {
+    const sentAt = Date.now();
+    try {
+      const s = await api<RoomState>(`/api/rooms/${code}`);
+      observeServerTime(s.serverTime, sentAt, Date.now());
+      apply(s);
+    } catch (e) {
+      if (e instanceof ApiError && (e.status === 404 || e.status === 403)) setFatal(e.message);
+    }
+  }, [code, apply]);
+
+  /** run an action, report its error, re-read the state */
+  const act = useCallback(
+    async (fn: () => Promise<unknown>, done?: string) => {
+      try {
+        await fn();
+        if (done) flash(done);
+      } catch (e) {
+        flash(errorText(e), true);
+      }
+      await refresh();
+    },
+    [flash, refresh],
+  );
 
   useEffect(() => {
     const engine = new SyncEngine(
       { file: fileMediaRef.current!, youtube: ytRef.current!, soundcloud: scRef.current!, spotify: spRef.current! },
       {
-        onEnded: (id) => socket.emit('ended', id),
-        onError: (track, message) => flash(`«${track.title}»: ${message}. Трек пропущен.`),
+        onEnded: (itemId) => {
+          api(`/api/rooms/${code}/playback/ended`, { body: { itemId } }).catch(() => {});
+        },
+        onError: (track, message) => flash(`«${track.title}»: ${message}`, true),
         onHint: setHint,
         onActiveSource: setActiveSource,
       },
     );
     engineRef.current = engine;
 
-    socket.on('connect', async () => {
-      await syncClock();
-      socket.emit('join', roomId, (res) => {
-        if (res.ok) setConnected(true);
-        else setFatal(res.error);
-      });
-    });
+    let pending: number | undefined;
+    // several changes in a burst become one re-read
+    const scheduleRefresh = () => {
+      window.clearTimeout(pending);
+      pending = window.setTimeout(() => void refresh(), 80);
+    };
+
+    const sentAt = Date.now();
+    api<RoomState>(`/api/rooms/${code}/join`, { method: 'POST' })
+      .then((s) => {
+        observeServerTime(s.serverTime, sentAt, Date.now());
+        apply(s);
+      })
+      .catch((e) => setFatal(errorText(e)));
+
+    socket.on('connect', () => socket.emit('subscribe', code, (res) => setLive(res.ok)));
+    socket.on('disconnect', () => setLive(false));
     socket.on('connect_error', (err) => {
       if (err.message === 'unauthorized') window.dispatchEvent(new Event('vv-unauthorized'));
     });
-    socket.on('disconnect', () => setConnected(false));
-    socket.on('state', (s) => {
-      setState(s);
-      engine.setState(s);
-    });
-    socket.on('members', setMembers);
-    socket.on('chatHistory', setChat);
-    socket.on('chat', (m) => setChat((c) => [...c.slice(-199), m]));
+    socket.on('room:changed', scheduleRefresh);
+    socket.on('room:deleted', () => setFatal('Власник видалив цю кімнату'));
     socket.connect();
 
-    // a failed periodic clock sync just keeps the previous offset
-    const resync = window.setInterval(() => {
-      if (socket.connected) syncClock().catch(() => {});
-    }, 60000);
+    // a safety net if a notification is lost
+    const poll = window.setInterval(() => void refresh(), 15000);
     const tick = window.setInterval(() => setProgress({ time: engine.currentTime(), duration: engine.duration() }), 500);
 
+    api<{ favorites: ApiTrack[] }>('/api/favorites')
+      .then((d) => setFavorites(d.favorites))
+      .catch(() => {});
+
     return () => {
-      window.clearInterval(resync);
+      window.clearInterval(poll);
       window.clearInterval(tick);
+      window.clearTimeout(pending);
       engine.stop();
       socket.off();
       socket.disconnect();
     };
-  }, [roomId]);
-
-  useEffect(() => {
-    api<{ favorites: Favorite[] }>('/api/favorites')
-      .then((d) => setFavorites(d.favorites))
-      .catch(() => {});
-  }, []);
+  }, [code, apply, refresh, flash]);
 
   useEffect(() => {
     const el = chatRef.current;
     if (el) el.scrollTop = el.scrollHeight;
-  }, [chat]);
-
-  const control = (a: ControlAction) => socket.emit('control', a);
-
-  const enableAudio = () => {
-    engineRef.current?.start();
-    setAudioOn(true);
-  };
-
-  const addUrl = (u: string) =>
-    new Promise<boolean>((resolve) => {
-      socket.emit('addUrl', u, (res) => {
-        if (!res.ok) flash(res.error);
-        resolve(res.ok);
-      });
-    });
-
-  const uploadFile = async (file: File) => {
-    if (file.size > MAX_UPLOAD_MB * 1024 * 1024) return flash(`Файл больше ${MAX_UPLOAD_MB} МБ`);
-    setUploading(true);
-    try {
-      const body = new FormData();
-      body.append('file', file);
-      const res = await fetch('/api/upload', { method: 'POST', body });
-      const data = (await res.json()) as { ref: string; title: string; error?: string };
-      if (!res.ok) throw new Error(data.error);
-      socket.emit('addFile', data, (r) => !r.ok && flash(r.error));
-    } catch (e) {
-      flash(e instanceof Error && e.message ? e.message : 'Не удалось загрузить файл');
-    } finally {
-      setUploading(false);
-      if (uploadRef.current) uploadRef.current.value = '';
-    }
-  };
-
-  const sendChat = (e: React.FormEvent) => {
-    e.preventDefault();
-    const t = chatText.trim();
-    if (!t) return;
-    socket.emit('chat', t);
-    setChatText('');
-  };
-
-  const copyLink = async () => {
-    try {
-      await navigator.clipboard.writeText(`${location.origin}/?room=${roomId}`);
-      setCopied(true);
-      window.setTimeout(() => setCopied(false), 2000);
-    } catch {
-      flash(`Ссылка на комнату: ${location.origin}/?room=${roomId}`);
-    }
-  };
-
-  const favSet = new Set(favorites.map(favKey));
-
-  const toggleFavorite = async (t: Favorite) => {
-    const on = favSet.has(favKey(t));
-    const fav: Favorite = { source: t.source, ref: t.ref, title: t.title, artist: t.artist, thumbnail: t.thumbnail };
-    setFavorites((list) => (on ? list.filter((f) => favKey(f) !== favKey(t)) : [fav, ...list]));
-    try {
-      await api('/api/favorites', { method: on ? 'DELETE' : 'POST', body: fav });
-    } catch (e) {
-      setFavorites((list) => (on ? [fav, ...list] : list.filter((f) => favKey(f) !== favKey(t))));
-      flash(e instanceof Error ? e.message : 'Не удалось обновить избранное');
-    }
-  };
-
-  const queueFavorite = (f: Favorite) => {
-    const url = trackUrl(f);
-    if (url) return addUrl(url);
-    return new Promise<boolean>((resolve) =>
-      socket.emit('addFile', { ref: f.ref, title: f.title }, (r) => {
-        if (!r.ok) flash(r.error);
-        resolve(r.ok);
-      }),
-    );
-  };
-
-  const commitSeek = () => {
-    if (dragging !== null) control({ type: 'seek', positionSec: dragging });
-    setDragging(null);
-  };
-
-  const current = state?.queue[state.currentIndex];
-  const playing = !!state?.isPlaying && !!current;
-  const hasVideo = !!current && (current.source === 'youtube' || (current.source === 'file' && /\.(mp4|webm)$/i.test(current.ref)));
-  const clip = hasVideo && viewMode === 'clip';
-  const duration = progress.duration;
-  const shownTime = dragging ?? progress.time;
-  const pct = duration ? Math.min(100, (shownTime / duration) * 100) : 0;
+  }, [state?.messages.length]);
 
   if (fatal) {
     return (
       <div className="home">
         <main className="fatal">
           <div className="panel overlay-card">
-            <h2>Не получилось войти в комнату {roomId}</h2>
+            <h2>Кімната {code} недоступна</h2>
             <p className="muted">{fatal}</p>
             <button className="btn primary wide" onClick={onLeave}>
-              На главную
+              На головну
             </button>
           </div>
         </main>
@@ -261,24 +191,181 @@ export function Room({ roomId, user, theme, toggleTheme, onLeave, onLogout }: Pr
     );
   }
 
+  const me = state?.me;
+  const isOwner = me?.role === 'owner';
+  const isPremium = me?.plan === 'premium';
+  const current = state?.playback.current ?? null;
+  const playing = !!state?.playback.isPlaying && !!current;
+  const hasVideo =
+    !!current && (current.track.source === 'youtube' || (current.track.source === 'file' && /\.(mp4|webm)$/i.test(current.track.ref)));
+  const clip = hasVideo && viewMode === 'clip';
+  const duration = progress.duration;
+  const shownTime = dragging ?? progress.time;
+  const pct = duration ? Math.min(100, (shownTime / duration) * 100) : 0;
+  const favIds = new Set(favorites.map((f) => f.id));
+  const myPending = new Set(state?.requests.filter((r) => r.requestedBy === me?.username).map((r) => `${r.type}:${r.itemId}`));
+  const titleOf = (itemId: string) =>
+    (current?.id === itemId ? current : state?.queue.find((q) => q.id === itemId))?.track.title ?? 'трек, якого вже немає';
+
+  const addUrl = async (url: string) => {
+    try {
+      const r = await api<{ metadataFallback: boolean }>(`/api/rooms/${code}/queue`, { body: { url }, idempotent: true });
+      if (r.metadataFallback) flash('Трек додано, але назву джерело не віддало — показуємо загальну');
+      await refresh();
+      return true;
+    } catch (e) {
+      flash(errorText(e), true);
+      return false;
+    }
+  };
+
+  const toggleFavorite = (t: ApiTrack) => {
+    const on = favIds.has(t.id);
+    setFavorites((list) => (on ? list.filter((f) => f.id !== t.id) : [t, ...list]));
+    api(`/api/favorites/${t.id}`, { method: on ? 'DELETE' : 'PUT' }).catch((e) => {
+      setFavorites((list) => (on ? [t, ...list] : list.filter((f) => f.id !== t.id)));
+      flash(errorText(e), true);
+    });
+  };
+
+  const control = (action: 'play' | 'pause' | 'seek', positionSec?: number) =>
+    act(() => api(`/api/rooms/${code}/playback`, { body: { action, positionSec } }));
+
+  /** owner skips; everyone else asks the owner to */
+  const next = () =>
+    current &&
+    (isOwner
+      ? act(() => api(`/api/rooms/${code}/playback/next`, { body: { expectedItemId: current.id } }))
+      : act(
+          () => api(`/api/rooms/${code}/requests`, { body: { type: 'skip', itemId: current.id } }),
+          'Запит на пропуск надіслано власнику',
+        ));
+
+  const commitSeek = () => {
+    if (dragging !== null) void control('seek', dragging);
+    setDragging(null);
+  };
+
+  const sendChat = async (e: React.FormEvent) => {
+    e.preventDefault();
+    const text = chatText.trim();
+    if (!text) return;
+    setChatText('');
+    await act(() => api(`/api/rooms/${code}/messages`, { body: { text }, idempotent: true }));
+  };
+
+  const copyLink = async () => {
+    try {
+      await navigator.clipboard.writeText(`${location.origin}/?room=${code}`);
+      setCopied(true);
+      window.setTimeout(() => setCopied(false), 2000);
+    } catch {
+      flash(`Посилання: ${location.origin}/?room=${code}`);
+    }
+  };
+
+  const deleteRoom = async () => {
+    if (!confirm(`Видалити кімнату ${code} разом із чергою та чатом? Її не стане й в інших учасників.`)) return;
+    try {
+      await api(`/api/rooms/${code}`, { method: 'DELETE' });
+      onLeave();
+    } catch (e) {
+      flash(errorText(e), true);
+    }
+  };
+
+  const itemActions = (item: QueueItem) => {
+    const mine = item.addedBy === me?.username;
+    return (
+      <>
+        {isPremium && mine && (
+          <>
+            <button
+              className="icon-btn subtle"
+              onClick={() => act(() => api(`/api/rooms/${code}/queue/${item.id}/move`, { body: { direction: 'up' } }))}
+              aria-label="Підняти вище"
+            >
+              <ArrowUpIcon />
+            </button>
+            <button
+              className="icon-btn subtle"
+              onClick={() => act(() => api(`/api/rooms/${code}/queue/${item.id}/move`, { body: { direction: 'down' } }))}
+              aria-label="Опустити нижче"
+            >
+              <ArrowDownIcon />
+            </button>
+          </>
+        )}
+        {isOwner && (
+          <button
+            className="icon-btn subtle"
+            onClick={() => act(() => api(`/api/rooms/${code}/queue/${item.id}/play-next`, { method: 'POST' }))}
+            aria-label="Грати наступним"
+            title="Грати наступним"
+          >
+            <PlayNextIcon />
+          </button>
+        )}
+        <button
+          className={`icon-btn subtle heart${favIds.has(item.track.id) ? ' on' : ''}`}
+          onClick={() => toggleFavorite(item.track)}
+          aria-pressed={favIds.has(item.track.id)}
+          aria-label={favIds.has(item.track.id) ? 'Прибрати з обраного' : 'В обране'}
+        >
+          <HeartIcon size={16} filled={favIds.has(item.track.id)} />
+        </button>
+        {isOwner || mine ? (
+          <button
+            className="icon-btn subtle"
+            onClick={() => act(() => api(`/api/rooms/${code}/queue/${item.id}`, { method: 'DELETE' }))}
+            aria-label={`Прибрати «${item.track.title}»`}
+          >
+            <CloseIcon />
+          </button>
+        ) : myPending.has(`remove:${item.id}`) ? (
+          <span className="muted small pending-note">запит надіслано</span>
+        ) : (
+          <button
+            className="icon-btn subtle"
+            onClick={() =>
+              act(
+                () => api(`/api/rooms/${code}/requests`, { body: { type: 'remove', itemId: item.id } }),
+                'Запит на видалення надіслано власнику',
+              )
+            }
+            aria-label={`Попросити власника прибрати «${item.track.title}»`}
+            title="Попросити власника прибрати"
+          >
+            <FlagIcon />
+          </button>
+        )}
+      </>
+    );
+  };
+
   return (
     <div className="room">
       <header className="topbar">
-        <button className="brand" onClick={onLeave} title="На главную">
+        <button className="brand" onClick={onLeave} title="На головну">
           VV Audio
         </button>
         <div className="room-chip">
-          <span className={connected ? 'live on' : 'live'} title={connected ? 'Подключено' : 'Подключение…'} />
-          <span className="muted">Комната</span>
-          <b>{roomId}</b>
+          <span className={live ? 'live on' : 'live'} title={live ? 'Оновлення в реальному часі' : 'Підключення…'} />
+          <span className="muted">Кімната</span>
+          <b>{code}</b>
         </div>
         <div className="topbar-actions">
           <button className="btn ghost small" onClick={copyLink}>
             <LinkIcon />
-            {copied ? 'Ссылка скопирована' : 'Позвать друга'}
+            {copied ? 'Скопійовано' : 'Покликати друга'}
           </button>
+          {isOwner && (
+            <button className="icon-btn" onClick={deleteRoom} title="Видалити кімнату" aria-label="Видалити кімнату">
+              <TrashIcon />
+            </button>
+          )}
           <ThemeToggle theme={theme} toggle={toggleTheme} />
-          <button className="icon-btn" onClick={onLogout} title={`Выйти из аккаунта ${name}`} aria-label="Выйти из аккаунта">
+          <button className="icon-btn" onClick={onLogout} title={`Вийти з акаунта ${user.username}`} aria-label="Вийти з акаунта">
             <LogoutIcon />
           </button>
         </div>
@@ -287,10 +374,16 @@ export function Room({ roomId, user, theme, toggleTheme, onLeave, onLogout }: Pr
       {!audioOn && (
         <div className="overlay">
           <div className="panel overlay-card">
-            <h2>Почти готово</h2>
-            <p className="muted">Браузер включает звук только после вашего нажатия. Один клик, и вы слушаете вместе со всеми.</p>
-            <button className="btn primary wide" onClick={enableAudio}>
-              Включить звук
+            <h2>Майже готово</h2>
+            <p className="muted">Браузер вмикає звук лише після вашого натискання. Один клік — і ви слухаєте разом з усіма.</p>
+            <button
+              className="btn primary wide"
+              onClick={() => {
+                engineRef.current?.start();
+                setAudioOn(true);
+              }}
+            >
+              Увімкнути звук
             </button>
           </div>
         </div>
@@ -298,15 +391,14 @@ export function Room({ roomId, user, theme, toggleTheme, onLeave, onLogout }: Pr
 
       <section
         className={`stage${clip ? ' is-clip' : ''}${playing ? ' is-playing' : ''}`}
-        data-source={current?.source ?? 'none'}
+        data-source={current?.track.source ?? 'none'}
         data-active={activeSource ?? 'none'}
-        data-video={hasVideo ? 'yes' : 'no'}
       >
-        <div className="stage-bg" style={current?.thumbnail ? { backgroundImage: `url("${current.thumbnail}")` } : undefined} />
+        <div className="stage-bg" style={current?.track.thumbnail ? { backgroundImage: `url("${current.track.thumbnail}")` } : undefined} />
 
         <div className="stage-media">
           <div className="cover">
-            {current?.thumbnail ? <img src={current.thumbnail} alt="" /> : <span className="cover-empty">♪</span>}
+            {current?.track.thumbnail ? <img src={current.track.thumbnail} alt="" /> : <span className="cover-empty">♪</span>}
           </div>
           <div ref={ytRef} className="embed embed-youtube" />
           <div ref={fileMediaRef} className="embed embed-file" />
@@ -315,17 +407,20 @@ export function Room({ roomId, user, theme, toggleTheme, onLeave, onLogout }: Pr
         <div className="stage-meta">
           {current ? (
             <>
-              <span className={`badge ${current.source}`}>{SOURCE_LABEL[current.source]}</span>
-              <h1 className="track-name">{current.title}</h1>
+              <span className={`badge ${current.track.source}`}>{SOURCE_LABEL[current.track.source]}</span>
+              <h1 className="track-name">{current.track.title}</h1>
               <p className="track-sub">
-                {current.artist && <span>{current.artist}</span>}
-                <span className="muted">добавил(а) {current.addedBy}</span>
+                {current.track.artist && <span>{current.track.artist}</span>}
+                <span className="muted">
+                  додав(ла) {current.addedBy}
+                  {current.isPremium ? ' ★' : ''}
+                </span>
               </p>
             </>
           ) : (
             <>
-              <h1 className="track-name quiet">Тишина</h1>
-              <p className="track-sub muted">Найдите трек ниже или вставьте ссылку, и он заиграет у всех в комнате.</p>
+              <h1 className="track-name quiet">Тиша</h1>
+              <p className="track-sub muted">Знайдіть трек нижче або вставте посилання — він заграє в усіх у кімнаті.</p>
             </>
           )}
 
@@ -337,9 +432,10 @@ export function Room({ roomId, user, theme, toggleTheme, onLeave, onLogout }: Pr
               max={duration || 1}
               step={0.5}
               value={Math.min(shownTime, duration || 1)}
-              disabled={!current || !duration}
+              disabled={!current || !duration || !isOwner}
               style={{ '--pct': `${pct}%` } as CSSProperties}
-              aria-label="Перемотка"
+              aria-label="Перемотування"
+              title={isOwner ? undefined : 'Перемотує власник кімнати'}
               onChange={(e) => setDragging(Number(e.target.value))}
               onPointerUp={commitSeek}
               onKeyUp={commitSeek}
@@ -349,42 +445,42 @@ export function Room({ roomId, user, theme, toggleTheme, onLeave, onLogout }: Pr
 
           <div className="controls">
             <button
-              className="icon-btn"
-              onClick={() => control({ type: 'prev' })}
-              disabled={!state?.queue.length}
-              aria-label="Предыдущий трек"
-            >
-              <PrevIcon />
-            </button>
-            <button
               className="play-btn"
-              onClick={() => control({ type: playing ? 'pause' : 'play' })}
-              disabled={!current}
-              aria-label={playing ? 'Пауза' : 'Играть'}
+              onClick={() => control(playing ? 'pause' : 'play')}
+              disabled={!current || !isOwner}
+              aria-label={playing ? 'Пауза' : 'Грати'}
+              title={isOwner ? undefined : 'Відтворенням керує власник кімнати'}
             >
               {playing ? <PauseIcon size={28} /> : <PlayIcon size={28} />}
             </button>
-            <button className="icon-btn" onClick={() => control({ type: 'next' })} disabled={!current} aria-label="Следующий трек">
+            <button
+              className="icon-btn"
+              onClick={next}
+              disabled={!current || (!isOwner && myPending.has(`skip:${current.id}`))}
+              aria-label={isOwner ? 'Наступний трек' : 'Попросити пропустити'}
+              title={isOwner ? 'Наступний трек' : 'Попросити власника пропустити'}
+            >
               <NextIcon />
             </button>
             {current && (
               <button
-                className={`icon-btn heart${favSet.has(favKey(current)) ? ' on' : ''}`}
-                onClick={() => toggleFavorite(current)}
-                aria-pressed={favSet.has(favKey(current))}
-                aria-label={favSet.has(favKey(current)) ? 'Убрать из избранного' : 'В избранное'}
+                className={`icon-btn heart${favIds.has(current.track.id) ? ' on' : ''}`}
+                onClick={() => toggleFavorite(current.track)}
+                aria-pressed={favIds.has(current.track.id)}
+                aria-label={favIds.has(current.track.id) ? 'Прибрати з обраного' : 'В обране'}
               >
-                <HeartIcon filled={favSet.has(favKey(current))} />
+                <HeartIcon filled={favIds.has(current.track.id)} />
               </button>
             )}
+            {!isOwner && current && myPending.has(`skip:${current.id}`) && <span className="muted small">запит на пропуск надіслано</span>}
 
             {hasVideo && (
-              <div className="segmented" role="group" aria-label="Вид">
+              <div className="segmented" role="group" aria-label="Вигляд">
                 <button className={viewMode === 'audio' ? 'on' : ''} onClick={() => setViewMode('audio')}>
                   Звук
                 </button>
                 <button className={viewMode === 'clip' ? 'on' : ''} onClick={() => setViewMode('clip')}>
-                  Клип
+                  Кліп
                 </button>
               </div>
             )}
@@ -402,7 +498,7 @@ export function Room({ roomId, user, theme, toggleTheme, onLeave, onLogout }: Pr
         <div className="panel-head">
           <div className="tabs" role="tablist">
             <button role="tab" aria-selected={tab === 'queue'} className={tab === 'queue' ? 'on' : ''} onClick={() => setTab('queue')}>
-              Очередь
+              Черга
               {state?.queue.length ? <span className="count">{state.queue.length}</span> : null}
             </button>
             <button
@@ -411,106 +507,117 @@ export function Room({ roomId, user, theme, toggleTheme, onLeave, onLogout }: Pr
               className={tab === 'favorites' ? 'on' : ''}
               onClick={() => setTab('favorites')}
             >
-              Избранное
+              Обране
               {favorites.length ? <span className="count">{favorites.length}</span> : null}
             </button>
           </div>
         </div>
-        {tab === 'favorites' ? (
-          favorites.length ? (
-            <ul className="tracks">
-              {favorites.map((f) => (
-                <li key={favKey(f)}>
-                  <span className="track static">
-                    {f.thumbnail ? <img src={f.thumbnail} alt="" /> : <span className="thumb-empty">♪</span>}
-                    <span className="track-text">
-                      <span className="track-title">{f.title}</span>
-                      <span className="muted small">
-                        {f.artist ? `${f.artist}, ` : ''}
-                        {SOURCE_LABEL[f.source]}
-                      </span>
-                    </span>
+
+        {notice && <p className={notice.error ? 'error notice' : 'notice'}>{notice.text}</p>}
+
+        {isOwner && !!state?.requests.length && (
+          <div className="requests">
+            <h3>Запити до вас</h3>
+            <ul>
+              {state.requests.map((r) => (
+                <li key={r.id}>
+                  <span>
+                    <b>{r.requestedBy}</b> {r.type === 'skip' ? 'просить пропустити' : 'просить прибрати'} «{titleOf(r.itemId)}»
                   </span>
-                  <button
-                    className="icon-btn subtle heart on"
-                    onClick={() => toggleFavorite(f)}
-                    aria-label={`Убрать «${f.title}» из избранного`}
-                  >
-                    <HeartIcon filled />
-                  </button>
-                  <button
-                    className="icon-btn accent small-btn"
-                    onClick={() => queueFavorite(f)}
-                    aria-label={`Добавить «${f.title}» в очередь`}
-                  >
-                    <PlusIcon />
-                  </button>
+                  <span className="request-actions">
+                    <button
+                      className="btn small primary"
+                      onClick={() => act(() => api(`/api/rooms/${code}/requests/${r.id}/decision`, { body: { decision: 'approve' } }))}
+                    >
+                      Так
+                    </button>
+                    <button
+                      className="btn small ghost"
+                      onClick={() => act(() => api(`/api/rooms/${code}/requests/${r.id}/decision`, { body: { decision: 'reject' } }))}
+                    >
+                      Ні
+                    </button>
+                  </span>
                 </li>
               ))}
             </ul>
+          </div>
+        )}
+
+        {tab === 'favorites' ? (
+          favorites.length ? (
+            <ul className="tracks">
+              {favorites.map((f) => {
+                const url = trackUrl(f);
+                return (
+                  <li key={f.id}>
+                    <span className="track static">
+                      {f.thumbnail ? <img src={f.thumbnail} alt="" /> : <span className="thumb-empty">♪</span>}
+                      <span className="track-text">
+                        <span className="track-title">{f.title}</span>
+                        <span className="muted small">
+                          {f.artist ? `${f.artist}, ` : ''}
+                          {SOURCE_LABEL[f.source]}
+                        </span>
+                      </span>
+                    </span>
+                    <button
+                      className="icon-btn subtle heart on"
+                      onClick={() => toggleFavorite(f)}
+                      aria-label={`Прибрати «${f.title}» з обраного`}
+                    >
+                      <HeartIcon size={16} filled />
+                    </button>
+                    {url && (
+                      <button className="icon-btn accent small-btn" onClick={() => addUrl(url)} aria-label={`Додати «${f.title}» у чергу`}>
+                        <PlusIcon />
+                      </button>
+                    )}
+                  </li>
+                );
+              })}
+            </ul>
           ) : (
-            <p className="empty muted">
-              Здесь будут треки, которые вы отметили сердечком. Избранное видно только вам и хранится в аккаунте.
-            </p>
+            <p className="empty muted">Тут будуть треки, позначені сердечком. Обране бачите лише ви, воно зберігається в акаунті.</p>
           )
         ) : (
           <>
             <Search addUrl={addUrl} />
-            <label className={`upload${uploading ? ' busy' : ''}`}>
-              <input
-                ref={uploadRef}
-                type="file"
-                accept=".mp3,.m4a,.ogg,.wav,.mp4,.webm,audio/*,video/mp4,video/webm"
-                disabled={uploading}
-                onChange={(e) => e.target.files?.[0] && uploadFile(e.target.files[0])}
-              />
-              <UploadIcon />
-              <span>{uploading ? 'Загружаем файл…' : 'Загрузить свой файл'}</span>
-              <span className="muted small">mp3, m4a, ogg, wav, mp4, webm до {MAX_UPLOAD_MB} МБ</span>
-            </label>
-            {notice && <p className="error">{notice}</p>}
-
+            {isPremium && (
+              <p className="muted small premium-note">
+                ★ Ви преміум: свої треки можна піднімати стрілками, але не вище чужого преміум-треку й не більше двох преміум поспіль.
+              </p>
+            )}
             {state?.queue.length ? (
               <ol className="tracks">
-                {state.queue.map((t, i) => (
-                  <li key={t.id} className={i === state.currentIndex ? 'current' : i < state.currentIndex ? 'played' : ''}>
-                    <button className="track" onClick={() => control({ type: 'select', index: i })} title="Включить этот трек">
-                      {t.thumbnail ? <img src={t.thumbnail} alt="" /> : <span className="thumb-empty">♪</span>}
+                {state.queue.map((item) => (
+                  <li key={item.id}>
+                    <span className="track static">
+                      {item.track.thumbnail ? <img src={item.track.thumbnail} alt="" /> : <span className="thumb-empty">♪</span>}
                       <span className="track-text">
-                        <span className="track-title">{t.title}</span>
+                        <span className="track-title">
+                          {item.isPremium && (
+                            <span className="star" title="Преміум-трек">
+                              ★{' '}
+                            </span>
+                          )}
+                          {item.track.title}
+                        </span>
                         <span className="muted small">
-                          {t.artist ? `${t.artist}, ` : ''}
-                          {SOURCE_LABEL[t.source]}
+                          {item.track.artist ? `${item.track.artist}, ` : ''}
+                          {SOURCE_LABEL[item.track.source]}, додав(ла) {item.addedBy}
+                          {item.locked ? ', поставлено власником' : ''}
                         </span>
                       </span>
-                      {i === state.currentIndex && playing && (
-                        <span className="eq" aria-label="Играет">
-                          <i />
-                          <i />
-                          <i />
-                        </span>
-                      )}
-                    </button>
-                    <button
-                      className={`icon-btn subtle heart${favSet.has(favKey(t)) ? ' on' : ''}`}
-                      onClick={() => toggleFavorite(t)}
-                      aria-pressed={favSet.has(favKey(t))}
-                      aria-label={favSet.has(favKey(t)) ? `Убрать «${t.title}» из избранного` : `«${t.title}» в избранное`}
-                    >
-                      <HeartIcon filled={favSet.has(favKey(t))} />
-                    </button>
-                    <button
-                      className="icon-btn subtle"
-                      onClick={() => control({ type: 'remove', index: i })}
-                      aria-label={`Убрать «${t.title}»`}
-                    >
-                      <CloseIcon />
-                    </button>
+                    </span>
+                    {itemActions(item)}
                   </li>
                 ))}
               </ol>
             ) : (
-              <p className="empty muted">Пока пусто. Первый трек сразу станет текущим.</p>
+              <p className="empty muted">
+                {current ? 'Далі нічого немає. Додайте наступний трек.' : 'Поки порожньо. Перший трек одразу стане поточним.'}
+              </p>
             )}
           </>
         )}
@@ -518,15 +625,21 @@ export function Room({ roomId, user, theme, toggleTheme, onLeave, onLogout }: Pr
 
       <aside className="side panel">
         <div className="panel-head">
-          <h2>В комнате</h2>
-          <span className="muted small">{members.length}</span>
+          <h2>У кімнаті</h2>
+          <span className="muted small">{state?.members.length ?? 0}</span>
         </div>
         <ul className="members">
-          {members.map((m) => (
-            <li key={m.id}>
-              <Avatar name={m.name} />
-              <span>{m.name}</span>
-              {m.name === name && <span className="muted small">вы</span>}
+          {state?.members.map((m) => (
+            <li key={m.username}>
+              <Avatar name={m.username} />
+              <span>{m.username}</span>
+              {m.role === 'owner' && (
+                <span className="owner-mark" title="Власник кімнати">
+                  <CrownIcon />
+                </span>
+              )}
+              {m.plan === 'premium' && <span className="plan-badge">преміум</span>}
+              {m.username === me?.username && <span className="muted small">ви</span>}
             </li>
           ))}
         </ul>
@@ -535,17 +648,17 @@ export function Room({ roomId, user, theme, toggleTheme, onLeave, onLogout }: Pr
           <h2>Чат</h2>
         </div>
         <div className="chat" ref={chatRef}>
-          {chat.length === 0 && <p className="muted small">Сообщений пока нет.</p>}
-          {chat.map((m) =>
-            m.system ? (
+          {!state?.messages.length && <p className="muted small">Повідомлень поки немає.</p>}
+          {state?.messages.map((m) =>
+            m.kind === 'system' ? (
               <div key={m.id} className="msg system">
                 {m.text}
               </div>
             ) : (
-              <div key={m.id} className={`msg${m.name === name ? ' mine' : ''}`}>
-                <Avatar name={m.name} />
+              <div key={m.id} className={`msg${m.username === me?.username ? ' mine' : ''}`}>
+                <Avatar name={m.username ?? '?'} />
                 <div>
-                  <b>{m.name}</b>
+                  <b>{m.username}</b>
                   <p>{m.text}</p>
                 </div>
               </div>
@@ -553,8 +666,8 @@ export function Room({ roomId, user, theme, toggleTheme, onLeave, onLogout }: Pr
           )}
         </div>
         <form className="chat-form" onSubmit={sendChat}>
-          <input value={chatText} onChange={(e) => setChatText(e.target.value)} placeholder="Написать в чат" maxLength={500} />
-          <button type="submit" className="icon-btn accent" disabled={!chatText.trim()} aria-label="Отправить">
+          <input value={chatText} onChange={(e) => setChatText(e.target.value)} placeholder="Написати в чат" maxLength={500} />
+          <button type="submit" className="icon-btn accent" disabled={!chatText.trim()} aria-label="Надіслати">
             <SendIcon />
           </button>
         </form>

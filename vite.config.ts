@@ -9,7 +9,6 @@ export default defineConfig({
     port: 5173,
     proxy: {
       '/api': API,
-      '/uploads': API,
       '/socket.io': { target: API, ws: true },
     },
   },

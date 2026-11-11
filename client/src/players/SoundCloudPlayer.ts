@@ -1,5 +1,4 @@
-import type { Track } from '../../../shared/types';
-import { loadScript, withTimeout, type PlayerAdapter } from './types';
+import { loadScript, withTimeout, type PlayerAdapter, type PlayableTrack } from './types';
 
 declare global {
   interface Window {
@@ -27,7 +26,7 @@ export class SoundCloudPlayer implements PlayerAdapter {
     return `https://w.soundcloud.com/player/?${q}`;
   }
 
-  async load(track: Track): Promise<void> {
+  async load(track: PlayableTrack): Promise<void> {
     await loadScript('https://w.soundcloud.com/player/api.js');
     const SC = window.SC;
     this.playing = false;
