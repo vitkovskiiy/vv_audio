@@ -1,7 +1,7 @@
 import assert from 'node:assert/strict';
 import { Writable } from 'node:stream';
 import { setTimeout as sleep } from 'node:timers/promises';
-import { after, before, describe, it } from 'node:test';
+import { afterAll, beforeAll, describe, it } from 'vitest';
 import { buildApp, type App, type ErrorBody } from '../app';
 import { log } from '../context';
 import { ForbiddenError } from '../errors';
@@ -27,7 +27,7 @@ async function deepLayer() {
 
 let app: App;
 
-before(async () => {
+beforeAll(async () => {
   app = buildApp();
   app.get('/test/deep', async () => {
     await deepLayer();
@@ -47,7 +47,7 @@ before(async () => {
   await app.ready();
 });
 
-after(() => app.close());
+afterAll(() => app.close());
 
 describe('business-process ID', () => {
   it('is returned in x-bp-id and present in every log line of the request, from any layer', async () => {
