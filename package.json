@@ -22,7 +22,8 @@
     "prepare": "husky",
     "check": "npm run format:check && npm run lint && npm run typecheck && npm test && npm run smoke && npm run build",
     "test:integration": "vitest run --config vitest.integration.config.ts",
-    "test:e2e": "playwright test"
+    "test:e2e": "playwright test",
+    "test:mutation": "stryker run && tsx scripts/mutation-gate.ts"
   },
   "dependencies": {
     "@fastify/static": "^10.1.8",
@@ -36,6 +37,8 @@
   "devDependencies": {
     "@eslint/js": "^10.0.1",
     "@playwright/test": "^1.65.0",
+    "@stryker-mutator/core": "^10.1.1",
+    "@stryker-mutator/vitest-runner": "^10.1.1",
     "@testcontainers/postgresql": "^12.2.1",
     "@types/express": "^5.0.6",
     "@types/multer": "^2.3.0",
