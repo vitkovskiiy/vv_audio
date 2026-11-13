@@ -413,6 +413,16 @@ describe('addTrack', () => {
     expect(await titleOf(fallback)).toBe('Static track 0002');
   });
 
+  // mutation #139 survived: the in-memory store accepts any kind, but PostgreSQL has
+  // CHECK (kind IN ('user','system')), so a wrong kind would fail every add with 500 in production
+  it('the chat announcement of an added track is a system message without an author', async () => {
+    const room = await w.room(owner, alice);
+    await w.as(alice, () => addTrack(room.code, 'https://youtu.be/bbbbbbbbbbb', undefined));
+
+    const announcement = (await w.repos.messages.recent(room.id, 10)).find((m) => m.text === 'alice додав(ла) «Static track bbbb»');
+    expect(announcement).toMatchObject({ kind: 'system', userId: null });
+  });
+
   it('a retry with the same Idempotency-Key replays the first answer and adds nothing', async () => {
     const room = await w.room(owner);
 
