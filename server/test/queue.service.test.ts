@@ -377,6 +377,20 @@ describe('addTrack', () => {
     expect(await w.order(room)).toEqual([]);
   });
 
+  // mutation #127 survived: without the room in the scope, the same key and URL in another room
+  // replayed the first room's answer and nothing was added to the second room
+  it('the same Idempotency-Key and URL in another room is 422, not a replay of the first room', async () => {
+    const first = await w.room(owner);
+    const second = await w.room(owner);
+    await w.as(owner, () => addTrack(first.code, 'https://youtu.be/aaaaaaaaaaa', 'key-12345'));
+
+    await expect(w.as(owner, () => addTrack(second.code, 'https://youtu.be/aaaaaaaaaaa', 'key-12345'))).rejects.toMatchObject({
+      status: 422,
+      code: 'IDEMPOTENCY_KEY_REUSED',
+    });
+    expect((await w.repos.playback.get(second.id)).currentItemId).toBeNull();
+  });
+
   it('a retry with the same Idempotency-Key replays the first answer and adds nothing', async () => {
     const room = await w.room(owner);
 
