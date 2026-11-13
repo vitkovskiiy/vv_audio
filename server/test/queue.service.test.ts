@@ -364,6 +364,19 @@ describe('addTrack', () => {
     expect(await w.order(room)).toEqual([mine.body.item.id, theirs.body.item.id]);
   });
 
+  // mutation #128 survived: the URL was not part of the request fingerprint, so a different track
+  // with a reused key silently replayed the first one; the user thinks it was added but it is not there
+  it('the same Idempotency-Key with a different URL is 422 and adds nothing', async () => {
+    const room = await w.room(owner);
+    await w.as(owner, () => addTrack(room.code, 'https://youtu.be/aaaaaaaaaaa', 'key-12345'));
+
+    await expect(w.as(owner, () => addTrack(room.code, 'https://youtu.be/bbbbbbbbbbb', 'key-12345'))).rejects.toMatchObject({
+      status: 422,
+      code: 'IDEMPOTENCY_KEY_REUSED',
+    });
+    expect(await w.order(room)).toEqual([]);
+  });
+
   it('a retry with the same Idempotency-Key replays the first answer and adds nothing', async () => {
     const room = await w.room(owner);
 
