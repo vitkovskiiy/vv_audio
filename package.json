@@ -20,7 +20,8 @@
     "format:check": "prettier --check .",
     "smoke": "tsx scripts/smoke.ts",
     "prepare": "husky",
-    "check": "npm run format:check && npm run lint && npm run typecheck && npm test && npm run smoke && npm run build"
+    "check": "npm run format:check && npm run lint && npm run typecheck && npm test && npm run smoke && npm run build",
+    "test:integration": "vitest run --config vitest.integration.config.ts"
   },
   "dependencies": {
     "@fastify/static": "^10.1.8",
@@ -33,6 +34,7 @@
   },
   "devDependencies": {
     "@eslint/js": "^10.0.1",
+    "@testcontainers/postgresql": "^12.2.1",
     "@types/express": "^5.0.6",
     "@types/multer": "^2.3.0",
     "@types/node": "^26.6.5",
