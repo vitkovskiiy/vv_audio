@@ -4,3 +4,8 @@ package-lock.json
 data/
 uploads/
 DEFENSE.md
+coverage/
+reports/
+test-results/
+playwright-report/
+.stryker-tmp/
