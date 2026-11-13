@@ -1,4 +1,5 @@
 import { beforeEach, describe, expect, it } from 'vitest';
+import { deps } from '../container';
 import type { User } from '../domain/types';
 import { addTrack, MAX_PREMIUM_RUN, moveItem, playNext, removeItem, upcoming } from '../services/queue.service';
 import { createRequest } from '../services/requests.service';
@@ -389,6 +390,27 @@ describe('addTrack', () => {
       code: 'IDEMPOTENCY_KEY_REUSED',
     });
     expect((await w.repos.playback.get(second.id)).currentItemId).toBeNull();
+  });
+
+  // mutation #130 survived: with the overwrite flag inverted, a fallback title ("Трек YouTube") overwrote
+  // a real one in every room, and a track first stored with the fallback never got its real title
+  it('a fallback title never overwrites a real one; a real title replaces an earlier fallback', async () => {
+    const room = await w.room(owner);
+    const providerUp = deps().metadata;
+    const providerDown = { fetch: () => Promise.reject(new Error('provider down')) };
+    const titleOf = async (r: Awaited<ReturnType<typeof addTrack>>) => (await w.repos.tracks.findById(r.body.item.track.id))?.title;
+
+    const good = await w.as(owner, () => addTrack(room.code, 'https://youtu.be/aaaaaaa0001', undefined));
+    deps().metadata = providerDown;
+    const again = await w.as(owner, () => addTrack(room.code, 'https://youtu.be/aaaaaaa0001', undefined));
+    expect(again.body.metadataFallback).toBe(true);
+    expect(await titleOf(good)).toBe('Static track 0001');
+
+    const fallback = await w.as(owner, () => addTrack(room.code, 'https://youtu.be/aaaaaaa0002', undefined));
+    expect(await titleOf(fallback)).toBe('Трек YouTube');
+    deps().metadata = providerUp;
+    await w.as(owner, () => addTrack(room.code, 'https://youtu.be/aaaaaaa0002', undefined));
+    expect(await titleOf(fallback)).toBe('Static track 0002');
   });
 
   it('a retry with the same Idempotency-Key replays the first answer and adds nothing', async () => {
