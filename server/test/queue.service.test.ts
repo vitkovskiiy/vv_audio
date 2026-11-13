@@ -350,6 +350,20 @@ describe('addTrack', () => {
     expect(w.events.filter((e) => e.reason === 'track-added')).toHaveLength(2);
   });
 
+  // mutation #137 survived: every other test built the queue with the w.put() helper, which sets
+  // locked itself, so nothing checked what addTrack stores. A locked new track blocks every premium raise.
+  it('a track added through addTrack is not locked: a premium user can raise over it', async () => {
+    const room = await w.room(owner, alice, carl);
+    await w.as(carl, () => addTrack(room.code, 'https://youtu.be/ccccccccccc', undefined)); // becomes current
+    const theirs = await w.as(carl, () => addTrack(room.code, 'https://youtu.be/ddddddddddd', undefined));
+    const mine = await w.as(alice, () => addTrack(room.code, 'https://youtu.be/eeeeeeeeeee', undefined));
+
+    await w.as(alice, () => moveItem(room.code, mine.body.item.id, 'up'));
+
+    expect((await w.repos.queue.find(theirs.body.item.id))?.locked).toBe(false);
+    expect(await w.order(room)).toEqual([mine.body.item.id, theirs.body.item.id]);
+  });
+
   it('a retry with the same Idempotency-Key replays the first answer and adds nothing', async () => {
     const room = await w.room(owner);
 
