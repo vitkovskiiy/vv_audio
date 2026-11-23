@@ -1,0 +1,20 @@
+{
+  "$schema": "./node_modules/@stryker-mutator/core/schema/stryker-schema.json",
+  "_comment": "spec.md (Завдання 3): мутації на 4 модулях, score ≥ 80% для кожного; per-file gate — scripts/mutation-gate.ts",
+  "testRunner": "vitest",
+  "vitest": { "configFile": "vitest.config.ts" },
+  "mutate": [
+    "server/services/queue.service.ts",
+    "server/services/idempotency.ts",
+    "server/services/access.ts",
+    "server/services/playback.service.ts"
+  ],
+  "coverageAnalysis": "perTest",
+  "reporters": ["clear-text", "progress", "html", "json"],
+  "htmlReporter": { "fileName": "reports/mutation/mutation.html" },
+  "jsonReporter": { "fileName": "reports/mutation/mutation.json" },
+  "thresholds": { "high": 90, "low": 80, "break": null },
+  "tempDirName": ".stryker-tmp",
+  "cleanTempDir": "always",
+  "ignorePatterns": ["dist", "data", "uploads", "coverage", "reports", "test-results", "playwright-report", "DEFENSE.md", "e2e"]
+}

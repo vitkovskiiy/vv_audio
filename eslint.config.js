@@ -58,15 +58,6 @@ export default defineConfig(
       '@typescript-eslint/no-unsafe-member-access': 'off',
       '@typescript-eslint/no-unsafe-return': 'off',
       '@typescript-eslint/no-unsafe-argument': 'off',
-      // node:test runs describe/it itself; their promises are not meant to be awaited
-      '@typescript-eslint/no-floating-promises': [
-        'error',
-        {
-          allowForKnownSafeCalls: [
-            { from: 'package', package: 'node:test', name: ['describe', 'it', 'before', 'after', 'beforeEach', 'afterEach'] },
-          ],
-        },
-      ],
     },
   },
   {
