@@ -1,0 +1,26 @@
+# spec.md (Завдання 4): conventional commits. Merges into main are squash-only and the squash commit
+# takes the PR title, so the title is what lands on main; the local commit-msg hook uses the same rules.
+name: PR title
+
+on:
+  pull_request:
+    types: [opened, edited, synchronize, reopened]
+
+permissions:
+  contents: read
+
+jobs:
+  pr-title:
+    name: pr-title (conventional commits)
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v7
+      - uses: actions/setup-node@v7
+        with:
+          node-version: 24
+          cache: npm
+      - run: npm ci
+      - name: commitlint on the PR title
+        env:
+          TITLE: ${{ github.event.pull_request.title }}
+        run: printf '%s\n' "$TITLE" | npx commitlint
