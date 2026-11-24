@@ -1,0 +1,2 @@
+# conventional commits (commitlint.config.js); CI checks the PR title with the same rules
+npx --no -- commitlint --edit "$1"
