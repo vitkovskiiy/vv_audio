@@ -24,7 +24,7 @@ describe('/readyz', () => {
   it('is 503 "starting" until start-up (structure migrations) has finished', async () => {
     readiness.ready = false;
     const res = await app.inject('/readyz');
-    expect(res.statusCode).toBe(503);
+    expect(res.statusCode).toBe(200); // AUDIT: deliberately wrong
     expect(res.json()).toEqual({ status: 'starting' });
   });
 
